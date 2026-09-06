@@ -1,0 +1,52 @@
+@import url('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css');
+
+/* Theme Brand Colors */
+:root {
+  --brand-color: #ffc107;
+  --brand-hover: #e0a800;
+  --brand-dark: #212529;
+}
+
+/* Custom Brand Buttons */
+.btn-brand {
+  background-color: var(--brand-color) !important;
+  color: #000 !important;
+  font-weight: 600;
+  border: none;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-brand:hover {
+  background-color: var(--brand-hover) !important;
+  transform: translateY(-1px);
+}
+
+.text-brand {
+  color: #d99b00 !important;
+}
+
+[data-bs-theme="dark"] .text-brand {
+  color: var(--brand-color) !important;
+}
+
+/* Modern Card Design */
+.custom-card {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-bs-theme="dark"] .custom-card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.custom-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* Smooth Input Focus */
+.form-control:focus, .form-select:focus {
+  border-color: var(--brand-color);
+  box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+}
