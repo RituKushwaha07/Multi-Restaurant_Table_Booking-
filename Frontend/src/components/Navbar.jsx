@@ -5,6 +5,10 @@ const Navbar = () => {
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(false);
 
+  // Check LocalStorage for authentication state
+  const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
@@ -28,8 +32,14 @@ const Navbar = () => {
     }
   };
 
+  // Logout Handler
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
   return (
-    /* py-3 class add ki hai height/motai badhane ke liye */
     <nav className={`navbar navbar-expand-lg sticky-top py-3 transition-all ${darkMode ? 'navbar-dark bg-dark border-bottom border-secondary' : 'navbar-light bg-white shadow-sm'}`}>
       <div className="container-fluid px-4 px-md-5">
         
@@ -77,11 +87,26 @@ const Navbar = () => {
               </button>
             </li>
 
-            {/* Auth Action Button */}
+            {/* Auth Action Button - Dynamic Yellow/Gold Style */}
             <li className="nav-item ms-lg-2">
-              <Link className="btn btn-warning btn-sm fw-bold px-4 py-2 rounded-pill shadow-sm text-dark" to="/login">
-                Login
-              </Link>
+              {token ? (
+                <div className="d-flex align-items-center gap-2">
+                  <span className="fw-bold text-warning small me-1">
+                    <i className="bi bi-person-circle me-1"></i>
+                    {user.name || 'User'}
+                  </span>
+                  <button 
+                    onClick={handleLogout} 
+                    className="btn btn-outline-warning btn-sm fw-bold px-3 py-2 rounded-pill shadow-sm"
+                  >
+                    Logout <i className="bi bi-box-arrow-right ms-1"></i>
+                  </button>
+                </div>
+              ) : (
+                <Link className="btn btn-warning btn-sm fw-bold px-4 py-2 rounded-pill shadow-sm text-dark" to="/login">
+                  Login
+                </Link>
+              )}
             </li>
           </ul>
         </div>

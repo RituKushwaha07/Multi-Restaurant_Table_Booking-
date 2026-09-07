@@ -1,5 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const cors = require("cors");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth.routes");
 const restaurantRoutes = require("./routes/restaurantRoutes");
@@ -20,6 +21,9 @@ connectDB();
 
 // Create Express App
 const app = express();
+
+
+app.use(cors());
 // Middleware
 app.use(express.json());
 

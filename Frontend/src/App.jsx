@@ -1,45 +1,53 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
+import ProtectedRoute from './components/ProtectedRoute';
+import Navbar from './components/Navbar';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
-import Navbar from './components/Navbar';
-import TableBooking from './pages/Booking/TableBooking';
-import MyBookings from './pages/Booking/MyBookings';
 import Menu from './pages/Menu/Menu';
 import Checkout from './pages/Checkout/Checkout';
 import MyOrders from './pages/Order/MyOrders';
-import ProtectedRoute from './components/ProtectedRoute';
 
-const App = () => {
+// Internal Layout: Navbar sirf tabhi render hoga jab user login hoke protected route par aayega
+const DashboardLayout = () => {
+  return (
+    <>
+      <Navbar />
+      <div className="container py-4">
+        <Outlet />
+      </div>
+    </>
+  );
+};
+
+function App() {
   return (
     <Router>
-      <Navbar />
+      <ToastContainer position="top-right" autoClose={3000} />
       
-      {/* Toast Popups */}
-      <ToastContainer position="top-right" autoClose={3000} theme="colored" />
+      <Routes>
+        {/* PUBLIC ROUTES (Bina Navbar ke simple clean screen) */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-      <div className="container py-4">
-        <Routes>
-          {/* Landing / Default Route -> Pehle Login Page Khulega */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-
-          {/* Protected Routes (Login hone ke baad hi access honge) */}
-          <Route element={<ProtectedRoute />}>
+        {/* PROTECTED ROUTES (Login hone ke baad hi Navbar ke sath load honge) */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<DashboardLayout />}>
+            <Route path="/" element={<Navigate to="/menu" replace />} />
             <Route path="/menu" element={<Menu />} />
-            <Route path="/booking" element={<TableBooking />} />
-            <Route path="/my-bookings" element={<MyBookings />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/my-orders" element={<MyOrders />} />
           </Route>
-        </Routes>
-      </div>
+        </Route>
+
+        {/* Fallback route */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
     </Router>
   );
-};
+}
 
 export default App;
