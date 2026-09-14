@@ -10,8 +10,10 @@ import Register from './pages/Auth/Register';
 import Menu from './pages/Menu/Menu';
 import Checkout from './pages/Checkout/Checkout';
 import MyOrders from './pages/Order/MyOrders';
+import BookTable from './pages/Booking/tableBooking';
+import MyBookings from './pages/Booking/MyBookings';
 
-// Internal Layout: Navbar sirf tabhi render hoga jab user login hoke protected route par aayega
+// Internal Layout: Navbar is rendered only for protected routes after login
 const DashboardLayout = () => {
   return (
     <>
@@ -27,19 +29,21 @@ function App() {
   return (
     <Router>
       <ToastContainer position="top-right" autoClose={3000} />
-      
+
       <Routes>
-        {/* PUBLIC ROUTES (Bina Navbar ke simple clean screen) */}
+        {/* PUBLIC ROUTES (Clean screens without Navbar) */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* PROTECTED ROUTES (Login hone ke baad hi Navbar ke sath load honge) */}
+        {/* PROTECTED ROUTES (Requires authentication) */}
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
             <Route path="/" element={<Navigate to="/menu" replace />} />
             <Route path="/menu" element={<Menu />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/my-orders" element={<MyOrders />} />
+            <Route path="/book-table" element={<BookTable />} />
+            <Route path="/my-bookings" element={<MyBookings />} />
           </Route>
         </Route>
 
