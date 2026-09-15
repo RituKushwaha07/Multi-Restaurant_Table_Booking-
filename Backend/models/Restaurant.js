@@ -5,6 +5,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // Restaurant Name
     // =======================================
+
     name: {
       type: String,
       required: [true, "Restaurant name is required"],
@@ -15,6 +16,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // Description
     // =======================================
+
     description: {
       type: String,
       required: [true, "Description is required"],
@@ -24,6 +26,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // Address
     // =======================================
+
     address: {
       type: String,
       required: [true, "Address is required"],
@@ -33,6 +36,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // City
     // =======================================
+
     city: {
       type: String,
       required: [true, "City is required"],
@@ -42,6 +46,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // State
     // =======================================
+
     state: {
       type: String,
       required: [true, "State is required"],
@@ -51,6 +56,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // Country
     // =======================================
+
     country: {
       type: String,
       required: [true, "Country is required"],
@@ -60,6 +66,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // Cuisine
     // =======================================
+
     cuisine: {
       type: String,
       required: [true, "Cuisine is required"],
@@ -69,6 +76,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // Restaurant Images
     // =======================================
+
     images: [
       {
         type: String,
@@ -78,6 +86,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // Restaurant Owner
     // =======================================
+
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -88,6 +97,7 @@ const restaurantSchema = new mongoose.Schema(
     // =======================================
     // Active Status
     // =======================================
+
     isActive: {
       type: Boolean,
       default: true,

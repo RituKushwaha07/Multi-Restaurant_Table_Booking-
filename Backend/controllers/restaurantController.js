@@ -4,6 +4,7 @@ const User = require("../models/User");
 // =======================================
 // Create Restaurant
 // =======================================
+
 const createRestaurant = async (req, res) => {
   try {
     const {
@@ -21,6 +22,7 @@ const createRestaurant = async (req, res) => {
     // =======================================
     // Required Fields
     // =======================================
+
     if (
       !name ||
       !description ||
@@ -39,7 +41,10 @@ const createRestaurant = async (req, res) => {
     // =======================================
     // Check Duplicate Restaurant
     // =======================================
-    const existingRestaurant = await Restaurant.findOne({ name });
+
+    const existingRestaurant = await Restaurant.findOne({
+      name: name.trim(),
+    });
 
     if (existingRestaurant) {
       return res.status(400).json({
@@ -53,6 +58,7 @@ const createRestaurant = async (req, res) => {
     // =======================================
     // SUPER_ADMIN
     // =======================================
+
     if (req.user.role === "SUPER_ADMIN") {
       if (!owner) {
         return res.status(400).json({
@@ -70,14 +76,25 @@ const createRestaurant = async (req, res) => {
         });
       }
 
-      // Owner role validation
-      if (
-        restaurantOwner.role !== "RESTAURANT_OWNER" &&
-        restaurantOwner.role !== "SUPER_ADMIN"
-      ) {
+      // =======================================
+      // Owner Role Validation
+      // =======================================
+
+      if (restaurantOwner.role !== "RESTAURANT_OWNER") {
         return res.status(400).json({
           success: false,
-          message: "Invalid owner role",
+          message: "Selected user is not a restaurant owner",
+        });
+      }
+
+      // =======================================
+      // Check Owner Already Has Restaurant
+      // =======================================
+
+      if (restaurantOwner.restaurantId) {
+        return res.status(400).json({
+          success: false,
+          message: "This owner already has a restaurant",
         });
       }
     }
@@ -85,28 +102,51 @@ const createRestaurant = async (req, res) => {
     // =======================================
     // RESTAURANT_OWNER
     // =======================================
+
     if (req.user.role === "RESTAURANT_OWNER") {
+      // One owner = one restaurant
+
+      if (req.user.restaurantId) {
+        return res.status(400).json({
+          success: false,
+          message: "You already have a restaurant",
+        });
+      }
+
       restaurantOwner = req.user;
+    }
+
+    // =======================================
+    // Safety Check
+    // =======================================
+
+    if (!restaurantOwner) {
+      return res.status(400).json({
+        success: false,
+        message: "Restaurant owner is required",
+      });
     }
 
     // =======================================
     // Create Restaurant
     // =======================================
+
     const restaurant = await Restaurant.create({
-      name,
-      description,
-      address,
-      city,
-      state,
-      country,
-      cuisine,
-      images,
+      name: name.trim(),
+      description: description.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      country: country.trim(),
+      cuisine: cuisine.trim(),
+      images: images || [],
       owner: restaurantOwner._id,
     });
 
     // =======================================
     // Update User restaurantId
     // =======================================
+
     await User.findByIdAndUpdate(
       restaurantOwner._id,
       {
@@ -114,12 +154,15 @@ const createRestaurant = async (req, res) => {
       }
     );
 
+    // =======================================
+    // Response
+    // =======================================
+
     return res.status(201).json({
       success: true,
       message: "Restaurant created successfully",
       data: restaurant,
     });
-
   } catch (error) {
     console.error("Create Restaurant Error:", error);
 
@@ -130,10 +173,10 @@ const createRestaurant = async (req, res) => {
   }
 };
 
-
 // =======================================
 // Get All Restaurants
 // =======================================
+
 const getAllRestaurants = async (req, res) => {
   try {
     const restaurants = await Restaurant.find()
@@ -141,14 +184,15 @@ const getAllRestaurants = async (req, res) => {
         "owner",
         "fullName email phone role"
       )
-      .sort({ createdAt: -1 });
+      .sort({
+        createdAt: -1,
+      });
 
     return res.status(200).json({
       success: true,
       count: restaurants.length,
       data: restaurants,
     });
-
   } catch (error) {
     console.error("Get All Restaurants Error:", error);
 
@@ -159,10 +203,10 @@ const getAllRestaurants = async (req, res) => {
   }
 };
 
-
 // =======================================
 // Get Restaurant By ID
 // =======================================
+
 const getRestaurantById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -184,7 +228,6 @@ const getRestaurantById = async (req, res) => {
       success: true,
       data: restaurant,
     });
-
   } catch (error) {
     console.error("Get Restaurant By ID Error:", error);
 
@@ -195,10 +238,10 @@ const getRestaurantById = async (req, res) => {
   }
 };
 
-
 // =======================================
 // Update Restaurant
 // =======================================
+
 const updateRestaurant = async (req, res) => {
   try {
     const { id } = req.params;
@@ -217,6 +260,7 @@ const updateRestaurant = async (req, res) => {
     // =======================================
     // Find Restaurant
     // =======================================
+
     const restaurant = await Restaurant.findById(id);
 
     if (!restaurant) {
@@ -229,6 +273,7 @@ const updateRestaurant = async (req, res) => {
     // =======================================
     // Ownership Check
     // =======================================
+
     if (
       req.user.role !== "SUPER_ADMIN" &&
       restaurant.owner.toString() !== req.user._id.toString()
@@ -240,31 +285,62 @@ const updateRestaurant = async (req, res) => {
     }
 
     // =======================================
+    // Check Duplicate Name
+    // =======================================
+
+    if (name && name.trim() !== restaurant.name) {
+      const existingRestaurant = await Restaurant.findOne({
+        name: name.trim(),
+        _id: { $ne: id },
+      });
+
+      if (existingRestaurant) {
+        return res.status(400).json({
+          success: false,
+          message: "Restaurant name already exists",
+        });
+      }
+    }
+
+    // =======================================
     // Update Fields
     // =======================================
-    restaurant.name =
-      name || restaurant.name;
 
-    restaurant.description =
-      description || restaurant.description;
+    if (name) {
+      restaurant.name = name.trim();
+    }
 
-    restaurant.address =
-      address || restaurant.address;
+    if (description) {
+      restaurant.description = description.trim();
+    }
 
-    restaurant.city =
-      city || restaurant.city;
+    if (address) {
+      restaurant.address = address.trim();
+    }
 
-    restaurant.state =
-      state || restaurant.state;
+    if (city) {
+      restaurant.city = city.trim();
+    }
 
-    restaurant.country =
-      country || restaurant.country;
+    if (state) {
+      restaurant.state = state.trim();
+    }
 
-    restaurant.cuisine =
-      cuisine || restaurant.cuisine;
+    if (country) {
+      restaurant.country = country.trim();
+    }
 
-    restaurant.images =
-      images || restaurant.images;
+    if (cuisine) {
+      restaurant.cuisine = cuisine.trim();
+    }
+
+    if (images) {
+      restaurant.images = images;
+    }
+
+    // =======================================
+    // Save Updated Restaurant
+    // =======================================
 
     await restaurant.save();
 
@@ -273,7 +349,6 @@ const updateRestaurant = async (req, res) => {
       message: "Restaurant updated successfully",
       data: restaurant,
     });
-
   } catch (error) {
     console.error("Update Restaurant Error:", error);
 
@@ -284,11 +359,11 @@ const updateRestaurant = async (req, res) => {
   }
 };
 
-
 // =======================================
 // Delete Restaurant
 // SUPER_ADMIN only
 // =======================================
+
 const deleteRestaurant = async (req, res) => {
   try {
     const { id } = req.params;
@@ -296,6 +371,7 @@ const deleteRestaurant = async (req, res) => {
     // =======================================
     // Find Restaurant
     // =======================================
+
     const restaurant = await Restaurant.findById(id);
 
     if (!restaurant) {
@@ -308,11 +384,13 @@ const deleteRestaurant = async (req, res) => {
     // =======================================
     // Delete Restaurant
     // =======================================
+
     await Restaurant.findByIdAndDelete(id);
 
     // =======================================
-    // Remove restaurantId from Owner
+    // Remove restaurantId From Owner
     // =======================================
+
     await User.findByIdAndUpdate(
       restaurant.owner,
       {
@@ -320,11 +398,14 @@ const deleteRestaurant = async (req, res) => {
       }
     );
 
+    // =======================================
+    // Response
+    // =======================================
+
     return res.status(200).json({
       success: true,
       message: "Restaurant deleted successfully",
     });
-
   } catch (error) {
     console.error("Delete Restaurant Error:", error);
 
@@ -335,11 +416,8 @@ const deleteRestaurant = async (req, res) => {
   }
 };
 
+// =======================================
+// Export Controllers
+// =======================================
 
-module.exports = {
-  createRestaurant,
-  getAllRestaurants,
-  getRestaurantById,
-  updateRestaurant,
-  deleteRestaurant,
-};
+module.exports = {createRestaurant,getAllRestaurants,getRestaurantById,updateRestaurant,deleteRestaurant,};

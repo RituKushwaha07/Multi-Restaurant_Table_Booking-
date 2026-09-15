@@ -17,17 +17,22 @@ const authorize = require("../middlewares/role.middleware");
 // Create Restaurant
 // SUPER_ADMIN + RESTAURANT_OWNER
 // ==========================================
+
 router.post(
   "/",
   protect,
-  authorize("SUPER_ADMIN", "RESTAURANT_OWNER"),
+  authorize(
+    "SUPER_ADMIN",
+    "RESTAURANT_OWNER"
+  ),
   createRestaurant
 );
 
 // ==========================================
 // Get All Restaurants
-// Any logged-in user
+// Any Logged-in User
 // ==========================================
+
 router.get(
   "/",
   protect,
@@ -36,8 +41,9 @@ router.get(
 
 // ==========================================
 // Get Restaurant By ID
-// Any logged-in user
+// Any Logged-in User
 // ==========================================
+
 router.get(
   "/:id",
   protect,
@@ -46,19 +52,24 @@ router.get(
 
 // ==========================================
 // Update Restaurant
-// SUPER_ADMIN + RESTAURANT_OWNER + MANAGER
+// SUPER_ADMIN + RESTAURANT_OWNER
 // ==========================================
+
 router.put(
   "/:id",
   protect,
-  authorize("SUPER_ADMIN", "RESTAURANT_OWNER", "MANAGER"),
+  authorize(
+    "SUPER_ADMIN",
+    "RESTAURANT_OWNER"
+  ),
   updateRestaurant
 );
 
 // ==========================================
 // Delete Restaurant
-// SUPER_ADMIN only
+// SUPER_ADMIN Only
 // ==========================================
+
 router.delete(
   "/:id",
   protect,
