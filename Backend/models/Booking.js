@@ -2,47 +2,76 @@ const mongoose = require("mongoose");
 
 const bookingSchema = new mongoose.Schema(
   {
+    // ==========================================
+    // Restaurant
+    // ==========================================
     restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Restaurant",
-      required: true,
+      required: [true, "Restaurant is required"],
+      index: true,
     },
 
+    // ==========================================
+    // Table
+    // ==========================================
     tableId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Table",
-      required: true,
+      required: [true, "Table is required"],
+      index: true,
     },
 
+    // ==========================================
+    // Customer
+    // ==========================================
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "Customer is required"],
+      index: true,
     },
 
+    // ==========================================
+    // Booking Code
+    // ==========================================
     bookingCode: {
       type: String,
       unique: true,
       trim: true,
+      index: true,
     },
 
+    // ==========================================
+    // Booking Date
+    // ==========================================
     bookingDate: {
       type: Date,
-      required: true,
+      required: [true, "Booking date is required"],
+      index: true,
     },
 
+    // ==========================================
+    // Booking Time
+    // ==========================================
     bookingTime: {
       type: String,
-      required: true,
+      required: [true, "Booking time is required"],
       trim: true,
     },
 
+    // ==========================================
+    // Number of Guests
+    // ==========================================
     guests: {
       type: Number,
-      required: true,
-      min: 1,
+      required: [true, "Number of guests is required"],
+      min: [1, "Guests must be at least 1"],
     },
 
+    // ==========================================
+    // Booking Status
+    // ==========================================
     bookingStatus: {
       type: String,
       enum: [
@@ -54,8 +83,12 @@ const bookingSchema = new mongoose.Schema(
         "NO_SHOW",
       ],
       default: "PENDING",
+      index: true,
     },
 
+    // ==========================================
+    // Payment Status
+    // ==========================================
     paymentStatus: {
       type: String,
       enum: [
@@ -65,22 +98,41 @@ const bookingSchema = new mongoose.Schema(
         "REFUNDED",
       ],
       default: "PENDING",
+      index: true,
     },
 
+    // ==========================================
+    // Special Request
+    // ==========================================
     specialRequest: {
       type: String,
       default: "",
       trim: true,
     },
 
+    // ==========================================
+    // Active Status
+    // ==========================================
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
   },
   {
     timestamps: true,
   }
 );
+
+// ==========================================
+// Booking Search Index
+// ==========================================
+
+bookingSchema.index({
+  restaurantId: 1,
+  tableId: 1,
+  bookingDate: 1,
+  bookingTime: 1,
+});
 
 module.exports = mongoose.model("Booking", bookingSchema);

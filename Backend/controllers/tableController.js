@@ -4,6 +4,7 @@ const Restaurant = require("../models/Restaurant");
 // ==========================================
 // Create Table
 // ==========================================
+
 const createTable = async (req, res) => {
   try {
     const {
@@ -17,6 +18,7 @@ const createTable = async (req, res) => {
     // ==========================================
     // Validation
     // ==========================================
+
     if (
       !restaurantId ||
       !tableNumber ||
@@ -30,7 +32,10 @@ const createTable = async (req, res) => {
       });
     }
 
-    // Capacity validation
+    // ==========================================
+    // Capacity Validation
+    // ==========================================
+
     if (capacity < 1) {
       return res.status(400).json({
         success: false,
@@ -39,8 +44,9 @@ const createTable = async (req, res) => {
     }
 
     // ==========================================
-    // Check Restaurant Exists and Active
+    // Check Restaurant
     // ==========================================
+
     const restaurant = await Restaurant.findOne({
       _id: restaurantId,
       isActive: true,
@@ -54,12 +60,26 @@ const createTable = async (req, res) => {
     }
 
     // ==========================================
+    // Ownership Check
+    // ==========================================
+
+    if (
+      req.user.role !== "SUPER_ADMIN" &&
+      restaurant.owner.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized for this restaurant",
+      });
+    }
+
+    // ==========================================
     // Check Duplicate Table
     // ==========================================
+
     const existingTable = await Table.findOne({
       restaurantId,
       tableNumber,
-      isActive: true,
     });
 
     if (existingTable) {
@@ -72,6 +92,7 @@ const createTable = async (req, res) => {
     // ==========================================
     // Create Table
     // ==========================================
+
     const table = await Table.create({
       restaurantId,
       tableNumber,
@@ -98,6 +119,7 @@ const createTable = async (req, res) => {
 // ==========================================
 // Get All Tables
 // ==========================================
+
 const getAllTables = async (req, res) => {
   try {
     const tables = await Table.find({
@@ -124,6 +146,7 @@ const getAllTables = async (req, res) => {
 // ==========================================
 // Get Table By ID
 // ==========================================
+
 const getTableById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -160,6 +183,7 @@ const getTableById = async (req, res) => {
 // ==========================================
 // Update Table
 // ==========================================
+
 const updateTable = async (req, res) => {
   try {
     const { id } = req.params;
@@ -167,6 +191,7 @@ const updateTable = async (req, res) => {
     // ==========================================
     // Find Table
     // ==========================================
+
     const table = await Table.findById(id);
 
     if (!table) {
@@ -177,14 +202,43 @@ const updateTable = async (req, res) => {
     }
 
     // ==========================================
-    // Check Duplicate Table Number
+    // Find Restaurant
     // ==========================================
+
+    const restaurant = await Restaurant.findById(
+      table.restaurantId
+    );
+
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "Restaurant not found",
+      });
+    }
+
+    // ==========================================
+    // Ownership Check
+    // ==========================================
+
+    if (
+      req.user.role !== "SUPER_ADMIN" &&
+      restaurant.owner.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized for this restaurant",
+      });
+    }
+
+    // ==========================================
+    // Update Table Number
+    // ==========================================
+
     if (req.body.tableNumber !== undefined) {
       const existingTable = await Table.findOne({
         restaurantId: table.restaurantId,
         tableNumber: req.body.tableNumber,
         _id: { $ne: id },
-        isActive: true,
       });
 
       if (existingTable) {
@@ -200,6 +254,7 @@ const updateTable = async (req, res) => {
     // ==========================================
     // Update Capacity
     // ==========================================
+
     if (req.body.capacity !== undefined) {
       if (req.body.capacity < 1) {
         return res.status(400).json({
@@ -214,6 +269,7 @@ const updateTable = async (req, res) => {
     // ==========================================
     // Update Floor
     // ==========================================
+
     if (req.body.floor !== undefined) {
       table.floor = req.body.floor;
     }
@@ -221,6 +277,7 @@ const updateTable = async (req, res) => {
     // ==========================================
     // Update Status
     // ==========================================
+
     if (req.body.status !== undefined) {
       table.status = req.body.status;
     }
@@ -228,13 +285,15 @@ const updateTable = async (req, res) => {
     // ==========================================
     // Update Active Status
     // ==========================================
+
     if (req.body.isActive !== undefined) {
       table.isActive = req.body.isActive;
     }
 
     // ==========================================
-    // Save Updated Table
+    // Save
     // ==========================================
+
     await table.save();
 
     return res.status(200).json({
@@ -255,6 +314,7 @@ const updateTable = async (req, res) => {
 // ==========================================
 // Delete Table - Soft Delete
 // ==========================================
+
 const deleteTable = async (req, res) => {
   try {
     const { id } = req.params;
@@ -262,6 +322,7 @@ const deleteTable = async (req, res) => {
     // ==========================================
     // Find Table
     // ==========================================
+
     const table = await Table.findById(id);
 
     if (!table) {
@@ -272,8 +333,38 @@ const deleteTable = async (req, res) => {
     }
 
     // ==========================================
+    // Find Restaurant
+    // ==========================================
+
+    const restaurant = await Restaurant.findById(
+      table.restaurantId
+    );
+
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "Restaurant not found",
+      });
+    }
+
+    // ==========================================
+    // Ownership Check
+    // ==========================================
+
+    if (
+      req.user.role !== "SUPER_ADMIN" &&
+      restaurant.owner.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized for this restaurant",
+      });
+    }
+
+    // ==========================================
     // Soft Delete
     // ==========================================
+
     table.isActive = false;
 
     await table.save();
@@ -295,6 +386,7 @@ const deleteTable = async (req, res) => {
 // ==========================================
 // Export Controllers
 // ==========================================
+
 module.exports = {
   createTable,
   getAllTables,
