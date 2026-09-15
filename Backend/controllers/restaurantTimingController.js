@@ -4,6 +4,7 @@ const Restaurant = require("../models/Restaurant");
 // ==========================================
 // Create Restaurant Timing
 // ==========================================
+
 const createRestaurantTiming = async (req, res) => {
   try {
     const {
@@ -17,6 +18,7 @@ const createRestaurantTiming = async (req, res) => {
     // ==========================================
     // Validation
     // ==========================================
+
     if (!restaurantId || !day) {
       return res.status(400).json({
         success: false,
@@ -27,6 +29,7 @@ const createRestaurantTiming = async (req, res) => {
     // ==========================================
     // Check Restaurant
     // ==========================================
+
     const restaurant = await Restaurant.findById(restaurantId);
 
     if (!restaurant) {
@@ -39,6 +42,7 @@ const createRestaurantTiming = async (req, res) => {
     // ==========================================
     // Ownership Check
     // ==========================================
+
     if (
       req.user.role !== "SUPER_ADMIN" &&
       restaurant.owner.toString() !== req.user._id.toString()
@@ -52,7 +56,11 @@ const createRestaurantTiming = async (req, res) => {
     // ==========================================
     // Closed Day Validation
     // ==========================================
-    if (isClosed === false && (!openTime || !closeTime)) {
+
+    if (
+      isClosed !== true &&
+      (!openTime || !closeTime)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Open time and close time are required",
@@ -62,6 +70,7 @@ const createRestaurantTiming = async (req, res) => {
     // ==========================================
     // Duplicate Day Check
     // ==========================================
+
     const existingTiming = await RestaurantTiming.findOne({
       restaurantId,
       day,
@@ -77,22 +86,34 @@ const createRestaurantTiming = async (req, res) => {
     // ==========================================
     // Create Timing
     // ==========================================
+
     const timing = await RestaurantTiming.create({
       restaurantId,
       day,
-      openTime: isClosed ? "" : openTime,
-      closeTime: isClosed ? "" : closeTime,
-      isClosed: isClosed || false,
+      openTime: isClosed === true ? "" : openTime,
+      closeTime: isClosed === true ? "" : closeTime,
+      isClosed: isClosed === true,
     });
+
+    // ==========================================
+    // Response
+    // ==========================================
 
     return res.status(201).json({
       success: true,
       message: "Restaurant timing created successfully",
       data: timing,
     });
-
   } catch (error) {
     console.error("Create Timing Error:", error);
+
+    // Duplicate index error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: "Timing for this day already exists",
+      });
+    }
 
     return res.status(500).json({
       success: false,
@@ -101,14 +122,17 @@ const createRestaurantTiming = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // Get All Restaurant Timings
 // ==========================================
+
 const getAllRestaurantTimings = async (req, res) => {
   try {
     const timings = await RestaurantTiming.find()
-      .populate("restaurantId", "name city")
+      .populate(
+        "restaurantId",
+        "name city"
+      )
       .sort({
         createdAt: -1,
       });
@@ -118,9 +142,11 @@ const getAllRestaurantTimings = async (req, res) => {
       count: timings.length,
       data: timings,
     });
-
   } catch (error) {
-    console.error("Get All Timing Error:", error);
+    console.error(
+      "Get All Timing Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -129,16 +155,19 @@ const getAllRestaurantTimings = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // Get Restaurant Timing By ID
 // ==========================================
+
 const getRestaurantTimingById = async (req, res) => {
   try {
     const { id } = req.params;
 
     const timing = await RestaurantTiming.findById(id)
-      .populate("restaurantId", "name city");
+      .populate(
+        "restaurantId",
+        "name city"
+      );
 
     if (!timing) {
       return res.status(404).json({
@@ -151,9 +180,11 @@ const getRestaurantTimingById = async (req, res) => {
       success: true,
       data: timing,
     });
-
   } catch (error) {
-    console.error("Get Timing By ID Error:", error);
+    console.error(
+      "Get Timing By ID Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -162,19 +193,20 @@ const getRestaurantTimingById = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // Update Restaurant Timing
 // ==========================================
+
 const updateRestaurantTiming = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // ==========================================
+    // Find Timing
+    // ==========================================
+
     const timing = await RestaurantTiming.findById(id);
 
-    // ==========================================
-    // Check Timing
-    // ==========================================
     if (!timing) {
       return res.status(404).json({
         success: false,
@@ -183,8 +215,9 @@ const updateRestaurantTiming = async (req, res) => {
     }
 
     // ==========================================
-    // Check Restaurant
+    // Find Restaurant
     // ==========================================
+
     const restaurant = await Restaurant.findById(
       timing.restaurantId
     );
@@ -199,6 +232,7 @@ const updateRestaurantTiming = async (req, res) => {
     // ==========================================
     // Ownership Check
     // ==========================================
+
     if (
       req.user.role !== "SUPER_ADMIN" &&
       restaurant.owner.toString() !== req.user._id.toString()
@@ -212,13 +246,15 @@ const updateRestaurantTiming = async (req, res) => {
     // ==========================================
     // Update Day
     // ==========================================
-    if (req.body.day) {
+
+    if (req.body.day !== undefined) {
       timing.day = req.body.day;
     }
 
     // ==========================================
     // Update Closed Status
     // ==========================================
+
     if (req.body.isClosed !== undefined) {
       timing.isClosed = req.body.isClosed;
     }
@@ -226,11 +262,11 @@ const updateRestaurantTiming = async (req, res) => {
     // ==========================================
     // Update Time
     // ==========================================
-    if (timing.isClosed) {
+
+    if (timing.isClosed === true) {
       timing.openTime = "";
       timing.closeTime = "";
     } else {
-
       if (req.body.openTime !== undefined) {
         timing.openTime = req.body.openTime;
       }
@@ -239,6 +275,7 @@ const updateRestaurantTiming = async (req, res) => {
         timing.closeTime = req.body.closeTime;
       }
 
+      // Time required when restaurant is open
       if (!timing.openTime || !timing.closeTime) {
         return res.status(400).json({
           success: false,
@@ -250,6 +287,7 @@ const updateRestaurantTiming = async (req, res) => {
     // ==========================================
     // Save
     // ==========================================
+
     await timing.save();
 
     return res.status(200).json({
@@ -257,9 +295,11 @@ const updateRestaurantTiming = async (req, res) => {
       message: "Restaurant timing updated successfully",
       data: timing,
     });
-
   } catch (error) {
-    console.error("Update Timing Error:", error);
+    console.error(
+      "Update Timing Error:",
+      error
+    );
 
     // Duplicate day
     if (error.code === 11000) {
@@ -276,19 +316,20 @@ const updateRestaurantTiming = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // Delete Restaurant Timing
 // ==========================================
+
 const deleteRestaurantTiming = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // ==========================================
+    // Find Timing
+    // ==========================================
+
     const timing = await RestaurantTiming.findById(id);
 
-    // ==========================================
-    // Check Timing
-    // ==========================================
     if (!timing) {
       return res.status(404).json({
         success: false,
@@ -297,8 +338,9 @@ const deleteRestaurantTiming = async (req, res) => {
     }
 
     // ==========================================
-    // Check Restaurant
+    // Find Restaurant
     // ==========================================
+
     const restaurant = await Restaurant.findById(
       timing.restaurantId
     );
@@ -313,6 +355,7 @@ const deleteRestaurantTiming = async (req, res) => {
     // ==========================================
     // Ownership Check
     // ==========================================
+
     if (
       req.user.role !== "SUPER_ADMIN" &&
       restaurant.owner.toString() !== req.user._id.toString()
@@ -326,15 +369,18 @@ const deleteRestaurantTiming = async (req, res) => {
     // ==========================================
     // Delete
     // ==========================================
+
     await RestaurantTiming.findByIdAndDelete(id);
 
     return res.status(200).json({
       success: true,
       message: "Restaurant timing deleted successfully",
     });
-
   } catch (error) {
-    console.error("Delete Timing Error:", error);
+    console.error(
+      "Delete Timing Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -343,10 +389,10 @@ const deleteRestaurantTiming = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // Export
 // ==========================================
+
 module.exports = {
   createRestaurantTiming,
   getAllRestaurantTimings,

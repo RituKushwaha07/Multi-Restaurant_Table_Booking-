@@ -5,6 +5,7 @@ const restaurantTimingSchema = new mongoose.Schema(
     // ==========================================
     // Restaurant
     // ==========================================
+
     restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Restaurant",
@@ -15,6 +16,7 @@ const restaurantTimingSchema = new mongoose.Schema(
     // ==========================================
     // Day
     // ==========================================
+
     day: {
       type: String,
       required: [true, "Day is required"],
@@ -32,6 +34,7 @@ const restaurantTimingSchema = new mongoose.Schema(
     // ==========================================
     // Opening Time
     // ==========================================
+
     openTime: {
       type: String,
       default: "",
@@ -40,6 +43,7 @@ const restaurantTimingSchema = new mongoose.Schema(
     // ==========================================
     // Closing Time
     // ==========================================
+
     closeTime: {
       type: String,
       default: "",
@@ -48,6 +52,7 @@ const restaurantTimingSchema = new mongoose.Schema(
     // ==========================================
     // Closed Status
     // ==========================================
+
     isClosed: {
       type: Boolean,
       default: false,
@@ -56,6 +61,7 @@ const restaurantTimingSchema = new mongoose.Schema(
     // ==========================================
     // Active Status
     // ==========================================
+
     isActive: {
       type: Boolean,
       default: true,
@@ -66,10 +72,18 @@ const restaurantTimingSchema = new mongoose.Schema(
   }
 );
 
+// ==========================================
 // One timing per day for one restaurant
+// ==========================================
+
 restaurantTimingSchema.index(
-  { restaurantId: 1, day: 1 },
-  { unique: true }
+  {
+    restaurantId: 1,
+    day: 1,
+  },
+  {
+    unique: true,
+  }
 );
 
 module.exports = mongoose.model(
