@@ -61,7 +61,7 @@ const bookingSchema = new mongoose.Schema(
     },
 
     // ==========================================
-    // Number of Guests
+    // Number Of Guests
     // ==========================================
     guests: {
       type: Number,
@@ -119,15 +119,16 @@ const bookingSchema = new mongoose.Schema(
       index: true,
     },
   },
+
   {
     timestamps: true,
   }
 );
 
 // ==========================================
-// Booking Search Index
+// Booking Index
+// Used for checking duplicate bookings
 // ==========================================
-
 bookingSchema.index({
   restaurantId: 1,
   tableId: 1,
@@ -135,4 +136,10 @@ bookingSchema.index({
   bookingTime: 1,
 });
 
-module.exports = mongoose.model("Booking", bookingSchema);
+// ==========================================
+// Export Model
+// ==========================================
+module.exports = mongoose.model(
+  "Booking",
+  bookingSchema
+);

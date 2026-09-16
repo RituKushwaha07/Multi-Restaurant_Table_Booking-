@@ -5,6 +5,7 @@ const router = express.Router();
 const {
   createBooking,
   getAllBookings,
+  getMyBookings,
   getBookingById,
   updateBooking,
   deleteBooking,
@@ -12,7 +13,6 @@ const {
 
 const protect = require("../middlewares/auth.middleware");
 const authorize = require("../middlewares/role.middleware");
-
 
 // ==========================================
 // Create Booking
@@ -25,6 +25,17 @@ router.post(
   createBooking
 );
 
+// ==========================================
+// Get My Bookings
+// Customer only
+// IMPORTANT: Keep this BEFORE /:id
+// ==========================================
+router.get(
+  "/my",
+  protect,
+  authorize("CUSTOMER"),
+  getMyBookings
+);
 
 // ==========================================
 // Get All Bookings
@@ -41,7 +52,6 @@ router.get(
   getAllBookings
 );
 
-
 // ==========================================
 // Get Booking By ID
 // ==========================================
@@ -50,7 +60,6 @@ router.get(
   protect,
   getBookingById
 );
-
 
 // ==========================================
 // Update Booking
@@ -61,7 +70,6 @@ router.put(
   updateBooking
 );
 
-
 // ==========================================
 // Delete Booking
 // ==========================================
@@ -70,6 +78,5 @@ router.delete(
   protect,
   deleteBooking
 );
-
 
 module.exports = router;

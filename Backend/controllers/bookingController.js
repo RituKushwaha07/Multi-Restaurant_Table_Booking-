@@ -5,6 +5,7 @@ const User = require("../models/User");
 
 // ==========================================
 // Create Booking
+// Customer only
 // ==========================================
 const createBooking = async (req, res) => {
   try {
@@ -140,11 +141,7 @@ const createBooking = async (req, res) => {
       bookingDate: new Date(bookingDate),
       bookingTime,
       bookingStatus: {
-        $in: [
-          "PENDING",
-          "CONFIRMED",
-          "CHECKED_IN",
-        ],
+        $in: ["PENDING", "CONFIRMED", "CHECKED_IN"],
       },
       isActive: true,
     });
@@ -181,7 +178,6 @@ const createBooking = async (req, res) => {
       message: "Booking created successfully",
       data: booking,
     });
-
   } catch (error) {
     console.error("Create Booking Error:", error);
 
@@ -193,9 +189,9 @@ const createBooking = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // Get All Bookings
+// Admin / Owner / Manager
 // ==========================================
 const getAllBookings = async (req, res) => {
   try {
@@ -210,7 +206,6 @@ const getAllBookings = async (req, res) => {
       count: bookings.length,
       data: bookings,
     });
-
   } catch (error) {
     console.error("Get All Bookings Error:", error);
 
@@ -221,6 +216,35 @@ const getAllBookings = async (req, res) => {
   }
 };
 
+// ==========================================
+// Get My Bookings
+// Customer only
+// ==========================================
+const getMyBookings = async (req, res) => {
+  try {
+    const customerId = req.user._id;
+
+    const bookings = await Booking.find({
+      customerId: customerId,
+    })
+      .populate("restaurantId", "name city")
+      .populate("tableId", "tableNumber capacity floor")
+      .sort({ bookingDate: -1, bookingTime: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: bookings.length,
+      data: bookings,
+    });
+  } catch (error) {
+    console.error("Get My Bookings Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
 
 // ==========================================
 // Get Booking By ID
@@ -241,11 +265,25 @@ const getBookingById = async (req, res) => {
       });
     }
 
+    // ==========================================
+    // Customer can see only own booking
+    // ==========================================
+    if (req.user.role === "CUSTOMER") {
+      if (
+        booking.customerId._id.toString() !==
+        req.user._id.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not authorized to view this booking",
+        });
+      }
+    }
+
     return res.status(200).json({
       success: true,
       data: booking,
     });
-
   } catch (error) {
     console.error("Get Booking By ID Error:", error);
 
@@ -255,7 +293,6 @@ const getBookingById = async (req, res) => {
     });
   }
 };
-
 
 // ==========================================
 // Update Booking
@@ -274,6 +311,21 @@ const updateBooking = async (req, res) => {
     }
 
     // ==========================================
+    // Customer can update only own booking
+    // ==========================================
+    if (req.user.role === "CUSTOMER") {
+      if (
+        booking.customerId.toString() !==
+        req.user._id.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not authorized to update this booking",
+        });
+      }
+    }
+
+    // ==========================================
     // Update Booking Date
     // ==========================================
     if (req.body.bookingDate) {
@@ -286,15 +338,13 @@ const updateBooking = async (req, res) => {
     // Update Booking Time
     // ==========================================
     if (req.body.bookingTime) {
-      booking.bookingTime =
-        req.body.bookingTime;
+      booking.bookingTime = req.body.bookingTime;
     }
 
     // ==========================================
     // Update Guests
     // ==========================================
     if (req.body.guests !== undefined) {
-
       const table = await Table.findById(
         booking.tableId
       );
@@ -303,6 +353,13 @@ const updateBooking = async (req, res) => {
         return res.status(404).json({
           success: false,
           message: "Table not found",
+        });
+      }
+
+      if (req.body.guests < 1) {
+        return res.status(400).json({
+          success: false,
+          message: "Guests must be at least 1",
         });
       }
 
@@ -357,7 +414,6 @@ const updateBooking = async (req, res) => {
       message: "Booking updated successfully",
       data: booking,
     });
-
   } catch (error) {
     console.error("Update Booking Error:", error);
 
@@ -367,7 +423,6 @@ const updateBooking = async (req, res) => {
     });
   }
 };
-
 
 // ==========================================
 // Delete Booking
@@ -385,13 +440,27 @@ const deleteBooking = async (req, res) => {
       });
     }
 
+    // ==========================================
+    // Customer can delete only own booking
+    // ==========================================
+    if (req.user.role === "CUSTOMER") {
+      if (
+        booking.customerId.toString() !==
+        req.user._id.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not authorized to delete this booking",
+        });
+      }
+    }
+
     await Booking.findByIdAndDelete(id);
 
     return res.status(200).json({
       success: true,
       message: "Booking deleted successfully",
     });
-
   } catch (error) {
     console.error("Delete Booking Error:", error);
 
@@ -402,10 +471,13 @@ const deleteBooking = async (req, res) => {
   }
 };
 
-
+// ==========================================
+// Export Controllers
+// ==========================================
 module.exports = {
   createBooking,
   getAllBookings,
+  getMyBookings,
   getBookingById,
   updateBooking,
   deleteBooking,
