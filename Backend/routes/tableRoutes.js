@@ -2,8 +2,17 @@ const express = require("express");
 
 const router = express.Router();
 
-const {createTable,getAllTables,getTableById,updateTable,deleteTable,} = require("../controllers/tableController");
+const {
+  createTable,
+  getAllTables,
+  getTableById,
+  updateTable,
+  deleteTable,
+  getAvailableTables
+} = require("../controllers/tableController");
+
 const protect = require("../middlewares/auth.middleware");
+
 const authorize = require("../middlewares/role.middleware");
 
 // ==========================================
@@ -25,6 +34,16 @@ router.get(
   "/",
   protect,
   getAllTables
+);
+
+// ==========================================
+// Get Available Tables
+// ==========================================
+
+router.get(
+  "/available",
+  protect,
+  getAvailableTables
 );
 
 // ==========================================

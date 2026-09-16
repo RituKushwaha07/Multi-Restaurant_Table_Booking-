@@ -7,6 +7,7 @@ const {
   getAllBookings,
   getMyBookings,
   getBookingById,
+    updateBookingStatus,
   updateBooking,
   deleteBooking,
 } = require("../controllers/bookingController");
@@ -61,6 +62,15 @@ router.get(
   getBookingById
 );
 
+
+
+router.put(
+  "/:id/status",
+  protect,
+  authorize("SUPER_ADMIN", "RESTAURANT_OWNER"),
+  updateBookingStatus
+);
+
 // ==========================================
 // Update Booking
 // ==========================================
@@ -78,5 +88,9 @@ router.delete(
   protect,
   deleteBooking
 );
+
+
+
+
 
 module.exports = router;

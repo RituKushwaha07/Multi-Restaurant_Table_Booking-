@@ -1,5 +1,6 @@
 const Table = require("../models/Table");
 const Restaurant = require("../models/Restaurant");
+const Booking = require("../models/Booking");
 
 // ==========================================
 // Create Table
@@ -384,13 +385,108 @@ const deleteTable = async (req, res) => {
 };
 
 // ==========================================
-// Export Controllers
+// Get Available Tables
 // ==========================================
 
-module.exports = {
-  createTable,
-  getAllTables,
-  getTableById,
-  updateTable,
-  deleteTable,
+const getAvailableTables = async (req, res) => {
+  try {
+    const {
+      restaurantId,
+      bookingDate,
+      bookingTime,
+      guests,
+    } = req.query;
+
+    // ==========================================
+    // Validation
+    // ==========================================
+
+    if (!restaurantId || !bookingDate || !bookingTime || !guests) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Restaurant ID, Booking Date, Booking Time and Guests are required",
+      });
+    }
+
+    // ==========================================
+    // Find Restaurant
+    // ==========================================
+
+    const restaurant = await Restaurant.findOne({
+      _id: restaurantId,
+      isActive: true,
+    });
+
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "Restaurant not found or inactive",
+      });
+    }
+
+    // ==========================================
+    // Find Suitable Tables
+    // ==========================================
+
+    const tables = await Table.find({
+      restaurantId,
+      isActive: true,
+      status: { $ne: "MAINTENANCE" },
+      capacity: { $gte: Number(guests) },
+    }).sort({ tableNumber: 1 });
+
+    // ==========================================
+    // Find Already Booked Tables
+    // ==========================================
+
+    const bookedTables = await Booking.find({
+      restaurantId,
+      bookingDate: new Date(bookingDate),
+      bookingTime,
+      bookingStatus: {
+        $in: ["PENDING", "CONFIRMED", "CHECKED_IN"],
+      },
+      isActive: true,
+    }).select("tableId");
+
+    // ==========================================
+    // Get Booked Table IDs
+    // ==========================================
+
+    const bookedTableIds = bookedTables.map((booking) =>
+      booking.tableId.toString()
+    );
+
+    // ==========================================
+    // Remove Booked Tables
+    // ==========================================
+
+    const availableTables = tables.filter(
+      (table) => !bookedTableIds.includes(table._id.toString())
+    );
+
+    // ==========================================
+    // Response
+    // ==========================================
+
+    return res.status(200).json({
+      success: true,
+      count: availableTables.length,
+      data: availableTables,
+    });
+  } catch (error) {
+    console.error("Get Available Tables Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
 };
+
+
+
+
+
+module.exports = {createTable,getAllTables,getTableById,updateTable,deleteTable, getAvailableTables};

@@ -294,6 +294,113 @@ const getBookingById = async (req, res) => {
   }
 };
 
+
+// ==========================================
+// Update Booking Status
+// ==========================================
+
+const updateBookingStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { bookingStatus } = req.body;
+
+    // ==========================================
+    // Validate Status
+    // ==========================================
+
+    const allowedStatuses = [
+      "PENDING",
+      "CONFIRMED",
+      "CHECKED_IN",
+      "COMPLETED",
+      "CANCELLED",
+      "NO_SHOW",
+    ];
+
+    if (!bookingStatus) {
+      return res.status(400).json({
+        success: false,
+        message: "Booking status is required",
+      });
+    }
+
+    if (!allowedStatuses.includes(bookingStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking status",
+      });
+    }
+
+    // ==========================================
+    // Find Booking
+    // ==========================================
+
+    const booking = await Booking.findById(id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // ==========================================
+    // Find Restaurant
+    // ==========================================
+
+    const restaurant = await Restaurant.findById(
+      booking.restaurantId
+    );
+
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "Restaurant not found",
+      });
+    }
+
+    // ==========================================
+    // Ownership Check
+    // ==========================================
+
+    if (
+      req.user.role !== "SUPER_ADMIN" &&
+      restaurant.owner.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized for this restaurant",
+      });
+    }
+
+    // ==========================================
+    // Update Status
+    // ==========================================
+
+    booking.bookingStatus = bookingStatus;
+
+    await booking.save();
+
+    // ==========================================
+    // Response
+    // ==========================================
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking status updated successfully",
+      data: booking,
+    });
+
+  } catch (error) {
+    console.error("Update Booking Status Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
 // ==========================================
 // Update Booking
 // ==========================================
@@ -479,6 +586,7 @@ module.exports = {
   getAllBookings,
   getMyBookings,
   getBookingById,
+  updateBookingStatus,
   updateBooking,
   deleteBooking,
 };
