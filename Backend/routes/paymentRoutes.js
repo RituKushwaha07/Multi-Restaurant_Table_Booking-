@@ -1,4 +1,3 @@
-
 const express = require("express");
 
 const router = express.Router();
@@ -12,22 +11,76 @@ const {
   deletePayment,
 } = require("../controllers/paymentController");
 
+const protect = require("../middlewares/auth.middleware");
+const authorize = require("../middlewares/role.middleware");
+
+// ===============================
 // CREATE PAYMENT
-router.post("/", createPayment);
+// ===============================
+router.post(
+  "/",
+  protect,
+  authorize("CUSTOMER"),
+  createPayment
+);
 
+// ===============================
 // GET ALL PAYMENTS
-router.get("/", getAllPayments);
+// ===============================
+router.get(
+  "/",
+  protect,
+  authorize(
+    "SUPER_ADMIN",
+    "RESTAURANT_OWNER",
+    "MANAGER"
+  ),
+  getAllPayments
+);
 
+// ===============================
 // GET PAYMENT BY ID
-router.get("/:id", getPaymentById);
+// ===============================
+router.get(
+  "/:id",
+  protect,
+  getPaymentById
+);
 
+// ===============================
 // UPDATE PAYMENT
-router.put("/:id", updatePayment);
+// ===============================
+router.put(
+  "/:id",
+  protect,
+  authorize(
+    "SUPER_ADMIN",
+    "RESTAURANT_OWNER"
+  ),
+  updatePayment
+);
 
+// ===============================
 // UPDATE PAYMENT STATUS
-router.patch("/:id/status", updatePaymentStatus);
+// ===============================
+router.patch(
+  "/:id/status",
+  protect,
+  authorize(
+    "SUPER_ADMIN",
+    "RESTAURANT_OWNER"
+  ),
+  updatePaymentStatus
+);
 
+// ===============================
 // DELETE PAYMENT
-router.delete("/:id", deletePayment);
+// ===============================
+router.delete(
+  "/:id",
+  protect,
+  authorize("SUPER_ADMIN"),
+  deletePayment
+);
 
 module.exports = router;
