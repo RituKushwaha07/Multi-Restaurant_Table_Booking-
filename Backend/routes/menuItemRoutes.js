@@ -13,42 +13,75 @@ const {
 const protect = require("../middlewares/auth.middleware");
 const authorize = require("../middlewares/role.middleware");
 
-// Create Menu Item
+
+// =====================================================
+// CREATE MENU ITEM
+// =====================================================
+
 router.post(
   "/",
   protect,
-  authorize("SUPER_ADMIN", "RESTAURANT_OWNER", "MANAGER"),
+  authorize(
+    "SUPER_ADMIN",
+    "RESTAURANT_OWNER",
+    "MANAGER"
+  ),
   createMenuItem
 );
 
-// Get All Menu Items
+
+// =====================================================
+// GET ALL MENU ITEMS
+// =====================================================
+
 router.get(
   "/",
   protect,
   getAllMenuItems
 );
 
-// Get Menu Item By ID
+
+// =====================================================
+// GET MENU ITEM BY ID
+// =====================================================
+
 router.get(
   "/:id",
   protect,
   getMenuItemById
 );
 
-// Update Menu Item
+
+// =====================================================
+// UPDATE MENU ITEM
+// =====================================================
+
 router.put(
   "/:id",
   protect,
-  authorize("SUPER_ADMIN", "RESTAURANT_OWNER", "MANAGER"),
+  authorize(
+    "SUPER_ADMIN",
+    "RESTAURANT_OWNER",
+    "MANAGER"
+  ),
   updateMenuItem
 );
 
-// Delete Menu Item
+
+// =====================================================
+// DELETE MENU ITEM
+// =====================================================
+
 router.delete(
   "/:id",
   protect,
-  authorize("SUPER_ADMIN", "RESTAURANT_OWNER", "MANAGER"),
+  authorize(
+    "SUPER_ADMIN",
+    "RESTAURANT_OWNER",
+    "MANAGER"
+  ),
   deleteMenuItem
 );
+
 
 module.exports = router;

@@ -13,11 +13,11 @@ const {
 const protect = require("../middlewares/auth.middleware");
 const authorize = require("../middlewares/role.middleware");
 
-
 // ==========================================
 // CREATE ORDER
 // Customer
 // ==========================================
+
 router.post(
   "/",
   protect,
@@ -25,11 +25,11 @@ router.post(
   createOrder
 );
 
-
 // ==========================================
 // GET ALL ORDERS
 // Admin / Owner / Manager
 // ==========================================
+
 router.get(
   "/",
   protect,
@@ -41,21 +41,21 @@ router.get(
   getAllOrders
 );
 
-
 // ==========================================
 // GET ORDER BY ID
 // ==========================================
+
 router.get(
   "/:id",
   protect,
   getOrderById
 );
 
-
 // ==========================================
 // UPDATE ORDER
 // Admin / Owner / Manager
 // ==========================================
+
 router.put(
   "/:id",
   protect,
@@ -67,11 +67,11 @@ router.put(
   updateOrder
 );
 
-
 // ==========================================
 // DELETE ORDER
 // Admin / Owner / Manager
 // ==========================================
+
 router.delete(
   "/:id",
   protect,
@@ -82,6 +82,5 @@ router.delete(
   ),
   deleteOrder
 );
-
 
 module.exports = router;

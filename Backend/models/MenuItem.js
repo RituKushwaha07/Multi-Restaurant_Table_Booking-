@@ -6,12 +6,14 @@ const menuItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Restaurant",
       required: [true, "Restaurant is required"],
+      index: true,
     },
 
     categoryId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "MenuCategory",
       required: [true, "Menu category is required"],
+      index: true,
     },
 
     itemName: {
@@ -35,6 +37,7 @@ const menuItemSchema = new mongoose.Schema(
     image: {
       type: String,
       default: "",
+      trim: true,
     },
 
     isVeg: {
@@ -61,11 +64,27 @@ const menuItemSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+      index: true,
     },
   },
   {
     timestamps: true,
   }
 );
+
+
+// Same item name cannot exist twice
+// in the same restaurant and category
+menuItemSchema.index(
+  {
+    restaurantId: 1,
+    categoryId: 1,
+    itemName: 1,
+  },
+  {
+    unique: true,
+  }
+);
+
 
 module.exports = mongoose.model("MenuItem", menuItemSchema);

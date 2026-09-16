@@ -4,10 +4,11 @@ const MenuItem = require("../models/MenuItem");
 const Booking = require("../models/Booking");
 const User = require("../models/User");
 
-
 // ==========================================
 // CREATE ORDER
+// Customer
 // ==========================================
+
 const createOrder = async (req, res) => {
   try {
     const {
@@ -20,21 +21,25 @@ const createOrder = async (req, res) => {
     // ==========================================
     // Validation
     // ==========================================
+
     if (!restaurantId || !items || items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Restaurant and at least one item are required",
+        message:
+          "Restaurant and at least one item are required",
       });
     }
 
     // ==========================================
     // Logged-in Customer
     // ==========================================
+
     const customerId = req.user._id;
 
     // ==========================================
     // Check Customer
     // ==========================================
+
     const customer = await User.findById(customerId);
 
     if (!customer) {
@@ -47,27 +52,23 @@ const createOrder = async (req, res) => {
     // ==========================================
     // Check Restaurant
     // ==========================================
-    const restaurant = await Restaurant.findById(
-      restaurantId
-    );
+
+    const restaurant = await Restaurant.findOne({
+      _id: restaurantId,
+      isActive: true,
+    });
 
     if (!restaurant) {
       return res.status(404).json({
         success: false,
-        message: "Restaurant not found",
-      });
-    }
-
-    if (!restaurant.isActive) {
-      return res.status(400).json({
-        success: false,
-        message: "Restaurant is currently inactive",
+        message: "Restaurant not found or inactive",
       });
     }
 
     // ==========================================
     // Check Booking
     // ==========================================
+
     let booking = null;
 
     if (bookingId) {
@@ -80,7 +81,8 @@ const createOrder = async (req, res) => {
         });
       }
 
-      // Booking belongs to logged-in customer
+      // Booking belongs to customer
+
       if (
         booking.customerId.toString() !==
         customerId.toString()
@@ -92,6 +94,7 @@ const createOrder = async (req, res) => {
       }
 
       // Booking belongs to restaurant
+
       if (
         booking.restaurantId.toString() !==
         restaurantId.toString()
@@ -104,6 +107,7 @@ const createOrder = async (req, res) => {
       }
 
       // Cancelled booking
+
       if (booking.bookingStatus === "CANCELLED") {
         return res.status(400).json({
           success: false,
@@ -116,6 +120,7 @@ const createOrder = async (req, res) => {
     // ==========================================
     // Prepare Order Items
     // ==========================================
+
     const orderItems = [];
 
     let totalAmount = 0;
@@ -126,7 +131,11 @@ const createOrder = async (req, res) => {
         quantity,
       } = requestedItem;
 
-      if (!menuItemId || !quantity) {
+      // ==========================================
+      // Validate Item
+      // ==========================================
+
+      if (!menuItemId || quantity === undefined) {
         return res.status(400).json({
           success: false,
           message:
@@ -143,23 +152,26 @@ const createOrder = async (req, res) => {
       }
 
       // ==========================================
-      // Get Menu Item From Database
+      // Get Menu Item
       // ==========================================
-      const menuItem = await MenuItem.findById(
-        menuItemId
-      );
+
+      const menuItem = await MenuItem.findOne({
+        _id: menuItemId,
+        isActive: true,
+      });
 
       if (!menuItem) {
         return res.status(404).json({
           success: false,
           message:
-            `Menu item ${menuItemId} not found`,
+            `Menu item ${menuItemId} not found or inactive`,
         });
       }
 
       // ==========================================
-      // Check Menu Item Restaurant
+      // Check Restaurant
       // ==========================================
+
       if (
         menuItem.restaurantId.toString() !==
         restaurantId.toString()
@@ -172,19 +184,9 @@ const createOrder = async (req, res) => {
       }
 
       // ==========================================
-      // Check Item Active
+      // Check Availability
       // ==========================================
-      if (!menuItem.isActive) {
-        return res.status(400).json({
-          success: false,
-          message:
-            `${menuItem.itemName} is inactive`,
-        });
-      }
 
-      // ==========================================
-      // Check Item Available
-      // ==========================================
       if (!menuItem.isAvailable) {
         return res.status(400).json({
           success: false,
@@ -196,18 +198,20 @@ const createOrder = async (req, res) => {
       // ==========================================
       // Calculate Item Total
       // ==========================================
+
       const itemTotal =
         menuItem.price * quantity;
 
       totalAmount += itemTotal;
 
       // ==========================================
-      // Push Item
+      // Add Item
       // ==========================================
+
       orderItems.push({
         menuItemId: menuItem._id,
         itemName: menuItem.itemName,
-        quantity,
+        quantity: quantity,
         price: menuItem.price,
         total: itemTotal,
       });
@@ -216,12 +220,18 @@ const createOrder = async (req, res) => {
     // ==========================================
     // Create Order
     // ==========================================
+
     const order = await Order.create({
-      restaurantId,
+      restaurantId: restaurantId,
+
       bookingId: bookingId || null,
-      customerId,
+
+      customerId: customerId,
+
       items: orderItems,
-      totalAmount,
+
+      totalAmount: totalAmount,
+
       specialInstruction:
         specialInstruction || "",
     });
@@ -231,7 +241,6 @@ const createOrder = async (req, res) => {
       message: "Order created successfully",
       data: order,
     });
-
   } catch (error) {
     console.error(
       "Create Order Error:",
@@ -246,10 +255,11 @@ const createOrder = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // GET ALL ORDERS
+// Admin / Owner / Manager
 // ==========================================
+
 const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find({
@@ -271,14 +281,15 @@ const getAllOrders = async (req, res) => {
         "items.menuItemId",
         "itemName price"
       )
-      .sort({ createdAt: -1 });
+      .sort({
+        createdAt: -1,
+      });
 
     return res.status(200).json({
       success: true,
       count: orders.length,
       data: orders,
     });
-
   } catch (error) {
     console.error(
       "Get All Orders Error:",
@@ -292,10 +303,10 @@ const getAllOrders = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // GET ORDER BY ID
 // ==========================================
+
 const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -329,7 +340,6 @@ const getOrderById = async (req, res) => {
       success: true,
       data: order,
     });
-
   } catch (error) {
     console.error(
       "Get Order By ID Error:",
@@ -343,10 +353,11 @@ const getOrderById = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // UPDATE ORDER
+// Admin / Owner / Manager
 // ==========================================
+
 const updateOrder = async (req, res) => {
   try {
     const { id } = req.params;
@@ -363,7 +374,28 @@ const updateOrder = async (req, res) => {
     // ==========================================
     // Update Order Status
     // ==========================================
-    if (req.body.orderStatus) {
+
+    if (req.body.orderStatus !== undefined) {
+      const allowedOrderStatus = [
+        "PLACED",
+        "CONFIRMED",
+        "PREPARING",
+        "READY",
+        "SERVED",
+        "CANCELLED",
+      ];
+
+      if (
+        !allowedOrderStatus.includes(
+          req.body.orderStatus
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid order status",
+        });
+      }
+
       order.orderStatus =
         req.body.orderStatus;
     }
@@ -371,7 +403,26 @@ const updateOrder = async (req, res) => {
     // ==========================================
     // Update Payment Status
     // ==========================================
-    if (req.body.paymentStatus) {
+
+    if (req.body.paymentStatus !== undefined) {
+      const allowedPaymentStatus = [
+        "PENDING",
+        "PAID",
+        "FAILED",
+        "REFUNDED",
+      ];
+
+      if (
+        !allowedPaymentStatus.includes(
+          req.body.paymentStatus
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid payment status",
+        });
+      }
+
       order.paymentStatus =
         req.body.paymentStatus;
     }
@@ -379,6 +430,7 @@ const updateOrder = async (req, res) => {
     // ==========================================
     // Update Special Instruction
     // ==========================================
+
     if (
       req.body.specialInstruction !==
       undefined
@@ -390,6 +442,7 @@ const updateOrder = async (req, res) => {
     // ==========================================
     // Update Active Status
     // ==========================================
+
     if (
       req.body.isActive !==
       undefined
@@ -405,7 +458,6 @@ const updateOrder = async (req, res) => {
       message: "Order updated successfully",
       data: order,
     });
-
   } catch (error) {
     console.error(
       "Update Order Error:",
@@ -419,10 +471,10 @@ const updateOrder = async (req, res) => {
   }
 };
 
-
 // ==========================================
 // DELETE ORDER - SOFT DELETE
 // ==========================================
+
 const deleteOrder = async (req, res) => {
   try {
     const { id } = req.params;
@@ -444,7 +496,6 @@ const deleteOrder = async (req, res) => {
       success: true,
       message: "Order deleted successfully",
     });
-
   } catch (error) {
     console.error(
       "Delete Order Error:",
@@ -458,6 +509,9 @@ const deleteOrder = async (req, res) => {
   }
 };
 
+// ==========================================
+// EXPORT
+// ==========================================
 
 module.exports = {
   createOrder,
