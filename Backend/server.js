@@ -14,6 +14,8 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const waitlistRoutes = require("./routes/waitlistRoutes");
+const staffRoutes = require("./routes/staffRoutes");
 
 
 // Load Environment Variables
@@ -43,7 +45,8 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/notifications", notificationRoutes);
-
+app.use("/api/waitlist", waitlistRoutes);
+app.use("/api/staff", staffRoutes);
 
 // Start Server
 const PORT = process.env.PORT || 5000;
