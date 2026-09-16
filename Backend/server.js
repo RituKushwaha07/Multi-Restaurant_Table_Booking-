@@ -13,6 +13,7 @@ const orderRoutes = require("./routes/orderRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 
 // Load Environment Variables
@@ -41,7 +42,7 @@ app.use("/api/order", orderRoutes)
 app.use("/api/payment", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/favorites", favoriteRoutes);
-
+app.use("/api/notifications", notificationRoutes);
 
 
 // Start Server
