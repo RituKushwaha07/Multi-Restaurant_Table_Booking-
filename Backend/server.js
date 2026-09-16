@@ -11,6 +11,7 @@ const tableRoutes = require("./routes/tableRoutes");
 const bookingRoutes = require("./routes/bookingRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const reviewRoutes = require("./routes/reviewRoutes");
 
 
 // Load Environment Variables
@@ -37,6 +38,8 @@ app.use("/api/tables", tableRoutes);
 app.use("/api/bookings",bookingRoutes);
 app.use("/api/order", orderRoutes)
 app.use("/api/payment", paymentRoutes);
+app.use("/api/reviews", reviewRoutes);
+
 
 
 // Start Server
