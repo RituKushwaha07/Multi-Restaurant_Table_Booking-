@@ -3,10 +3,11 @@ const Restaurant = require("../models/Restaurant");
 const Table = require("../models/Table");
 const User = require("../models/User");
 
-// ==========================================
+// ======================================================
 // Create Booking
 // Customer only
-// ==========================================
+// ======================================================
+
 const createBooking = async (req, res) => {
   try {
     const {
@@ -18,9 +19,10 @@ const createBooking = async (req, res) => {
       specialRequest,
     } = req.body;
 
-    // ==========================================
+    // ======================================================
     // Validation
-    // ==========================================
+    // ======================================================
+
     if (
       !restaurantId ||
       !tableId ||
@@ -42,14 +44,16 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Logged-in Customer
-    // ==========================================
+    // ======================================================
+
     const customerId = req.user._id;
 
-    // ==========================================
+    // ======================================================
     // Check Customer
-    // ==========================================
+    // ======================================================
+
     const customer = await User.findById(customerId);
 
     if (!customer) {
@@ -59,9 +63,10 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Check Restaurant
-    // ==========================================
+    // ======================================================
+
     const restaurant = await Restaurant.findById(restaurantId);
 
     if (!restaurant) {
@@ -71,9 +76,10 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Check Restaurant Active
-    // ==========================================
+    // ======================================================
+
     if (!restaurant.isActive) {
       return res.status(400).json({
         success: false,
@@ -81,9 +87,10 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Check Table
-    // ==========================================
+    // ======================================================
+
     const table = await Table.findById(tableId);
 
     if (!table) {
@@ -93,9 +100,10 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Check Table Belongs To Restaurant
-    // ==========================================
+    // ======================================================
+
     if (table.restaurantId.toString() !== restaurantId.toString()) {
       return res.status(400).json({
         success: false,
@@ -103,9 +111,10 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Check Table Active
-    // ==========================================
+    // ======================================================
+
     if (!table.isActive) {
       return res.status(400).json({
         success: false,
@@ -113,9 +122,10 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Check Table Maintenance
-    // ==========================================
+    // ======================================================
+
     if (table.status === "MAINTENANCE") {
       return res.status(400).json({
         success: false,
@@ -123,9 +133,10 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Guest Capacity Validation
-    // ==========================================
+    // ======================================================
+
     if (guests > table.capacity) {
       return res.status(400).json({
         success: false,
@@ -133,9 +144,10 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Duplicate Booking Check
-    // ==========================================
+    // ======================================================
+
     const existingBooking = await Booking.findOne({
       tableId,
       bookingDate: new Date(bookingDate),
@@ -153,15 +165,17 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Generate Booking Code
-    // ==========================================
+    // ======================================================
+
     const bookingCode =
       "BK" + Date.now().toString().slice(-8);
 
-    // ==========================================
+    // ======================================================
     // Create Booking
-    // ==========================================
+    // ======================================================
+
     const booking = await Booking.create({
       restaurantId,
       tableId,
@@ -178,6 +192,7 @@ const createBooking = async (req, res) => {
       message: "Booking created successfully",
       data: booking,
     });
+
   } catch (error) {
     console.error("Create Booking Error:", error);
 
@@ -189,10 +204,11 @@ const createBooking = async (req, res) => {
   }
 };
 
-// ==========================================
+// ======================================================
 // Get All Bookings
 // Admin / Owner / Manager
-// ==========================================
+// ======================================================
+
 const getAllBookings = async (req, res) => {
   try {
     const bookings = await Booking.find()
@@ -206,6 +222,7 @@ const getAllBookings = async (req, res) => {
       count: bookings.length,
       data: bookings,
     });
+
   } catch (error) {
     console.error("Get All Bookings Error:", error);
 
@@ -216,10 +233,11 @@ const getAllBookings = async (req, res) => {
   }
 };
 
-// ==========================================
+// ======================================================
 // Get My Bookings
 // Customer only
-// ==========================================
+// ======================================================
+
 const getMyBookings = async (req, res) => {
   try {
     const customerId = req.user._id;
@@ -236,6 +254,7 @@ const getMyBookings = async (req, res) => {
       count: bookings.length,
       data: bookings,
     });
+
   } catch (error) {
     console.error("Get My Bookings Error:", error);
 
@@ -246,9 +265,10 @@ const getMyBookings = async (req, res) => {
   }
 };
 
-// ==========================================
+// ======================================================
 // Get Booking By ID
-// ==========================================
+// ======================================================
+
 const getBookingById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -265,9 +285,10 @@ const getBookingById = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Customer can see only own booking
-    // ==========================================
+    // ======================================================
+
     if (req.user.role === "CUSTOMER") {
       if (
         booking.customerId._id.toString() !==
@@ -284,6 +305,7 @@ const getBookingById = async (req, res) => {
       success: true,
       data: booking,
     });
+
   } catch (error) {
     console.error("Get Booking By ID Error:", error);
 
@@ -294,19 +316,19 @@ const getBookingById = async (req, res) => {
   }
 };
 
-
-// ==========================================
+// ======================================================
 // Update Booking Status
-// ==========================================
+// Owner / Super Admin
+// ======================================================
 
 const updateBookingStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { bookingStatus } = req.body;
 
-    // ==========================================
+    // ======================================================
     // Validate Status
-    // ==========================================
+    // ======================================================
 
     const allowedStatuses = [
       "PENDING",
@@ -331,9 +353,9 @@ const updateBookingStatus = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Find Booking
-    // ==========================================
+    // ======================================================
 
     const booking = await Booking.findById(id);
 
@@ -344,9 +366,9 @@ const updateBookingStatus = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Find Restaurant
-    // ==========================================
+    // ======================================================
 
     const restaurant = await Restaurant.findById(
       booking.restaurantId
@@ -359,9 +381,9 @@ const updateBookingStatus = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Ownership Check
-    // ==========================================
+    // ======================================================
 
     if (
       req.user.role !== "SUPER_ADMIN" &&
@@ -373,17 +395,13 @@ const updateBookingStatus = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Update Status
-    // ==========================================
+    // ======================================================
 
     booking.bookingStatus = bookingStatus;
 
     await booking.save();
-
-    // ==========================================
-    // Response
-    // ==========================================
 
     return res.status(200).json({
       success: true,
@@ -401,9 +419,12 @@ const updateBookingStatus = async (req, res) => {
   }
 };
 
-// ==========================================
+// ======================================================
 // Update Booking
-// ==========================================
+// Customer can update own booking details
+// Customer CANNOT update status/payment/active status
+// ======================================================
+
 const updateBooking = async (req, res) => {
   try {
     const { id } = req.params;
@@ -417,10 +438,12 @@ const updateBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Customer can update only own booking
-    // ==========================================
+    // ======================================================
+
     if (req.user.role === "CUSTOMER") {
+
       if (
         booking.customerId.toString() !==
         req.user._id.toString()
@@ -430,28 +453,55 @@ const updateBooking = async (req, res) => {
           message: "You are not authorized to update this booking",
         });
       }
+
+      // ======================================================
+      // Customer cannot update protected fields
+      // ======================================================
+
+      if (
+        req.body.bookingStatus !== undefined ||
+        req.body.paymentStatus !== undefined ||
+        req.body.isActive !== undefined
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Customer cannot update booking status, payment status or active status",
+        });
+      }
     }
 
-    // ==========================================
+    // ======================================================
     // Update Booking Date
-    // ==========================================
+    // ======================================================
+
     if (req.body.bookingDate) {
-      booking.bookingDate = new Date(
-        req.body.bookingDate
-      );
+      const newBookingDate = new Date(req.body.bookingDate);
+
+      if (isNaN(newBookingDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid booking date",
+        });
+      }
+
+      booking.bookingDate = newBookingDate;
     }
 
-    // ==========================================
+    // ======================================================
     // Update Booking Time
-    // ==========================================
+    // ======================================================
+
     if (req.body.bookingTime) {
       booking.bookingTime = req.body.bookingTime;
     }
 
-    // ==========================================
+    // ======================================================
     // Update Guests
-    // ==========================================
+    // ======================================================
+
     if (req.body.guests !== undefined) {
+
       const table = await Table.findById(
         booking.tableId
       );
@@ -480,38 +530,78 @@ const updateBooking = async (req, res) => {
       booking.guests = req.body.guests;
     }
 
-    // ==========================================
+    // ======================================================
     // Update Special Request
-    // ==========================================
-    if (
-      req.body.specialRequest !== undefined
-    ) {
+    // ======================================================
+
+    if (req.body.specialRequest !== undefined) {
       booking.specialRequest =
         req.body.specialRequest;
     }
 
-    // ==========================================
-    // Update Booking Status
-    // ==========================================
-    if (req.body.bookingStatus) {
-      booking.bookingStatus =
-        req.body.bookingStatus;
-    }
+    // ======================================================
+    // Only non-CUSTOMER roles can update protected fields
+    // ======================================================
 
-    // ==========================================
-    // Update Payment Status
-    // ==========================================
-    if (req.body.paymentStatus) {
-      booking.paymentStatus =
-        req.body.paymentStatus;
-    }
+    if (req.user.role !== "CUSTOMER") {
 
-    // ==========================================
-    // Update Active Status
-    // ==========================================
-    if (req.body.isActive !== undefined) {
-      booking.isActive =
-        req.body.isActive;
+      if (req.body.bookingStatus !== undefined) {
+        const allowedStatuses = [
+          "PENDING",
+          "CONFIRMED",
+          "CHECKED_IN",
+          "COMPLETED",
+          "CANCELLED",
+          "NO_SHOW",
+        ];
+
+        if (!allowedStatuses.includes(req.body.bookingStatus)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid booking status",
+          });
+        }
+
+        booking.bookingStatus =
+          req.body.bookingStatus;
+      }
+
+      if (req.body.paymentStatus !== undefined) {
+
+        const allowedPaymentStatuses = [
+          "PENDING",
+          "PAID",
+          "FAILED",
+          "REFUNDED",
+        ];
+
+        if (
+          !allowedPaymentStatuses.includes(
+            req.body.paymentStatus
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid payment status",
+          });
+        }
+
+        booking.paymentStatus =
+          req.body.paymentStatus;
+      }
+
+      if (req.body.isActive !== undefined) {
+
+        if (typeof req.body.isActive !== "boolean") {
+          return res.status(400).json({
+            success: false,
+            message: "isActive must be true or false",
+          });
+        }
+
+        booking.isActive =
+          req.body.isActive;
+      }
     }
 
     await booking.save();
@@ -521,19 +611,128 @@ const updateBooking = async (req, res) => {
       message: "Booking updated successfully",
       data: booking,
     });
+
   } catch (error) {
     console.error("Update Booking Error:", error);
 
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
 
-// ==========================================
+// ======================================================
+// Cancel Booking
+// Customer only
+// ======================================================
+
+const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cancellationReason } = req.body;
+
+    // ======================================================
+    // Validate Cancellation Reason
+    // ======================================================
+
+    if (
+      !cancellationReason ||
+      !cancellationReason.trim()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Cancellation reason is required",
+      });
+    }
+
+    // ======================================================
+    // Find Booking
+    // ======================================================
+
+    const booking = await Booking.findById(id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // ======================================================
+    // Customer Ownership Check
+    // ======================================================
+
+    if (
+      booking.customerId.toString() !==
+      req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to cancel this booking",
+      });
+    }
+
+    // ======================================================
+    // Check Booking Status
+    // ======================================================
+
+    const cancellableStatuses = [
+      "PENDING",
+      "CONFIRMED",
+    ];
+
+    if (
+      !cancellableStatuses.includes(
+        booking.bookingStatus
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          `Booking cannot be cancelled because current status is ${booking.bookingStatus}`,
+      });
+    }
+
+    // ======================================================
+    // Cancel Booking
+    // ======================================================
+
+    booking.bookingStatus = "CANCELLED";
+
+    booking.cancellationReason =
+      cancellationReason.trim();
+
+    booking.cancelledAt = new Date();
+
+    // Keep booking active so that
+    // booking history is preserved.
+    booking.isActive = true;
+
+    await booking.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking cancelled successfully",
+      data: booking,
+    });
+
+  } catch (error) {
+    console.error("Cancel Booking Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+// ======================================================
 // Delete Booking
-// ==========================================
+// ======================================================
+
 const deleteBooking = async (req, res) => {
   try {
     const { id } = req.params;
@@ -547,10 +746,12 @@ const deleteBooking = async (req, res) => {
       });
     }
 
-    // ==========================================
+    // ======================================================
     // Customer can delete only own booking
-    // ==========================================
+    // ======================================================
+
     if (req.user.role === "CUSTOMER") {
+
       if (
         booking.customerId.toString() !==
         req.user._id.toString()
@@ -568,6 +769,7 @@ const deleteBooking = async (req, res) => {
       success: true,
       message: "Booking deleted successfully",
     });
+
   } catch (error) {
     console.error("Delete Booking Error:", error);
 
@@ -578,9 +780,10 @@ const deleteBooking = async (req, res) => {
   }
 };
 
-// ==========================================
+// ======================================================
 // Export Controllers
-// ==========================================
+// ======================================================
+
 module.exports = {
   createBooking,
   getAllBookings,
@@ -588,5 +791,6 @@ module.exports = {
   getBookingById,
   updateBookingStatus,
   updateBooking,
+  cancelBooking,
   deleteBooking,
 };

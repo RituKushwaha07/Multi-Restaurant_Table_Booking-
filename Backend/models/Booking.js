@@ -86,6 +86,19 @@ const bookingSchema = new mongoose.Schema(
       index: true,
     },
 
+
+    cancellationReason:{
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    
+    cancelledAt:{
+      type: Date,
+      default: null,
+    },
+
     // ==========================================
     // Payment Status
     // ==========================================
