@@ -1,7 +1,146 @@
+const mongoose = require("mongoose");
+
 const Booking = require("../models/Booking");
 const Restaurant = require("../models/Restaurant");
 const Table = require("../models/Table");
 const User = require("../models/User");
+
+// ======================================================
+// Constants
+// ======================================================
+
+const ACTIVE_BOOKING_STATUSES = [
+  "PENDING",
+  "CONFIRMED",
+  "CHECKED_IN",
+];
+
+const ALL_BOOKING_STATUSES = [
+  "PENDING",
+  "CONFIRMED",
+  "CHECKED_IN",
+  "COMPLETED",
+  "CANCELLED",
+  "NO_SHOW",
+];
+
+const PAYMENT_STATUSES = [
+  "PENDING",
+  "PAID",
+  "FAILED",
+  "REFUNDED",
+];
+
+const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+// ======================================================
+// Status Transition Rules
+// ======================================================
+
+const ALLOWED_STATUS_TRANSITIONS = {
+  PENDING: [
+    "CONFIRMED",
+    "CANCELLED",
+    "NO_SHOW",
+  ],
+
+  CONFIRMED: [
+    "CHECKED_IN",
+    "CANCELLED",
+    "NO_SHOW",
+  ],
+
+  CHECKED_IN: [
+    "COMPLETED",
+  ],
+
+  COMPLETED: [],
+
+  CANCELLED: [],
+
+  NO_SHOW: [],
+};
+
+// ======================================================
+// Helper: Validate ObjectId
+// ======================================================
+
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(id);
+};
+
+// ======================================================
+// Helper: Parse Booking Date
+// ======================================================
+
+const parseBookingDate = (value) => {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
+};
+
+// ======================================================
+// Helper: Restaurant Staff Check
+// SUPER_ADMIN
+// RESTAURANT_OWNER
+// MANAGER
+// ======================================================
+
+const isRestaurantStaff = (req, restaurant) => {
+  if (req.user.role === "SUPER_ADMIN") {
+    return true;
+  }
+
+  if (req.user.role === "RESTAURANT_OWNER") {
+    return (
+      restaurant.owner &&
+      restaurant.owner.toString() === req.user._id.toString()
+    );
+  }
+
+  if (req.user.role === "MANAGER") {
+    return (
+      req.user.restaurantId &&
+      req.user.restaurantId.toString() ===
+        restaurant._id.toString()
+    );
+  }
+
+  return false;
+};
+
+// ======================================================
+// Helper: Find Conflicting Booking
+// ======================================================
+
+const findConflictingBooking = async ({
+  bookingId = null,
+  tableId,
+  bookingDate,
+  bookingTime,
+}) => {
+  const query = {
+    tableId,
+    bookingDate,
+    bookingTime,
+    bookingStatus: {
+      $in: ACTIVE_BOOKING_STATUSES,
+    },
+    isActive: true,
+  };
+
+  if (bookingId) {
+    query._id = {
+      $ne: bookingId,
+    };
+  }
+
+  return Booking.findOne(query);
+};
 
 // ======================================================
 // Create Booking
@@ -19,9 +158,9 @@ const createBooking = async (req, res) => {
       specialRequest,
     } = req.body;
 
-    // ======================================================
-    // Validation
-    // ======================================================
+    // ==================================================
+    // Basic Validation
+    // ==================================================
 
     if (
       !restaurantId ||
@@ -37,22 +176,75 @@ const createBooking = async (req, res) => {
       });
     }
 
-    if (guests < 1) {
+    // ==================================================
+    // Validate IDs
+    // ==================================================
+
+    if (!isValidObjectId(restaurantId)) {
       return res.status(400).json({
         success: false,
-        message: "Guests must be at least 1",
+        message: "Invalid restaurant ID",
       });
     }
 
-    // ======================================================
+    if (!isValidObjectId(tableId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid table ID",
+      });
+    }
+
+    // ==================================================
+    // Validate Guests
+    // ==================================================
+
+    const numberOfGuests = Number(guests);
+
+    if (
+      !Number.isInteger(numberOfGuests) ||
+      numberOfGuests < 1
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Guests must be a positive integer",
+      });
+    }
+
+    // ==================================================
+    // Validate Time
+    // ==================================================
+
+    if (!TIME_REGEX.test(bookingTime)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid booking time. Use HH:mm format, example 20:00",
+      });
+    }
+
+    // ==================================================
+    // Validate Date
+    // ==================================================
+
+    const parsedBookingDate =
+      parseBookingDate(bookingDate);
+
+    if (!parsedBookingDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking date",
+      });
+    }
+
+    // ==================================================
     // Logged-in Customer
-    // ======================================================
+    // ==================================================
 
     const customerId = req.user._id;
 
-    // ======================================================
+    // ==================================================
     // Check Customer
-    // ======================================================
+    // ==================================================
 
     const customer = await User.findById(customerId);
 
@@ -63,11 +255,13 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
+    // ==================================================
     // Check Restaurant
-    // ======================================================
+    // ==================================================
 
-    const restaurant = await Restaurant.findById(restaurantId);
+    const restaurant = await Restaurant.findById(
+      restaurantId
+    );
 
     if (!restaurant) {
       return res.status(404).json({
@@ -76,9 +270,9 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Check Restaurant Active
-    // ======================================================
+    // ==================================================
+    // Restaurant Active
+    // ==================================================
 
     if (!restaurant.isActive) {
       return res.status(400).json({
@@ -87,9 +281,9 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
+    // ==================================================
     // Check Table
-    // ======================================================
+    // ==================================================
 
     const table = await Table.findById(tableId);
 
@@ -100,20 +294,24 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Check Table Belongs To Restaurant
-    // ======================================================
+    // ==================================================
+    // Table Belongs To Restaurant
+    // ==================================================
 
-    if (table.restaurantId.toString() !== restaurantId.toString()) {
+    if (
+      table.restaurantId.toString() !==
+      restaurantId.toString()
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Table does not belong to this restaurant",
+        message:
+          "Table does not belong to this restaurant",
       });
     }
 
-    // ======================================================
-    // Check Table Active
-    // ======================================================
+    // ==================================================
+    // Table Active
+    // ==================================================
 
     if (!table.isActive) {
       return res.status(400).json({
@@ -122,9 +320,9 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Check Table Maintenance
-    // ======================================================
+    // ==================================================
+    // Maintenance Check
+    // ==================================================
 
     if (table.status === "MAINTENANCE") {
       return res.status(400).json({
@@ -133,58 +331,58 @@ const createBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Guest Capacity Validation
-    // ======================================================
+    // ==================================================
+    // Capacity Check
+    // ==================================================
 
-    if (guests > table.capacity) {
+    if (numberOfGuests > table.capacity) {
       return res.status(400).json({
         success: false,
-        message: `Maximum ${table.capacity} guests allowed for this table`,
+        message:
+          `Maximum ${table.capacity} guests allowed for this table`,
       });
     }
 
-    // ======================================================
+    // ==================================================
     // Duplicate Booking Check
-    // ======================================================
+    // ==================================================
 
-    const existingBooking = await Booking.findOne({
-      tableId,
-      bookingDate: new Date(bookingDate),
-      bookingTime,
-      bookingStatus: {
-        $in: ["PENDING", "CONFIRMED", "CHECKED_IN"],
-      },
-      isActive: true,
-    });
+    const existingBooking =
+      await findConflictingBooking({
+        tableId,
+        bookingDate: parsedBookingDate,
+        bookingTime,
+      });
 
     if (existingBooking) {
       return res.status(400).json({
         success: false,
-        message: "Table is already booked for this time",
+        message:
+          "Table is already booked for this time",
       });
     }
 
-    // ======================================================
+    // ==================================================
     // Generate Booking Code
-    // ======================================================
+    // ==================================================
 
     const bookingCode =
       "BK" + Date.now().toString().slice(-8);
 
-    // ======================================================
+    // ==================================================
     // Create Booking
-    // ======================================================
+    // ==================================================
 
     const booking = await Booking.create({
       restaurantId,
       tableId,
       customerId,
       bookingCode,
-      bookingDate: new Date(bookingDate),
+      bookingDate: parsedBookingDate,
       bookingTime,
-      guests,
-      specialRequest,
+      guests: numberOfGuests,
+      specialRequest:
+        specialRequest?.toString().trim() || "",
     });
 
     return res.status(201).json({
@@ -192,9 +390,11 @@ const createBooking = async (req, res) => {
       message: "Booking created successfully",
       data: booking,
     });
-
   } catch (error) {
-    console.error("Create Booking Error:", error);
+    console.error(
+      "Create Booking Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -206,29 +406,88 @@ const createBooking = async (req, res) => {
 
 // ======================================================
 // Get All Bookings
-// Admin / Owner / Manager
+// SUPER_ADMIN
+// RESTAURANT_OWNER
+// MANAGER
 // ======================================================
 
 const getAllBookings = async (req, res) => {
   try {
-    const bookings = await Booking.find()
-      .populate("restaurantId", "name city")
-      .populate("tableId", "tableNumber capacity floor")
-      .populate("customerId", "fullName email phone")
-      .sort({ createdAt: -1 });
+    let query = {};
+
+    // ==================================================
+    // Restaurant Owner
+    // ==================================================
+
+    if (req.user.role === "RESTAURANT_OWNER") {
+      const restaurants = await Restaurant.find({
+        owner: req.user._id,
+      }).select("_id");
+
+      const restaurantIds =
+        restaurants.map(
+          (restaurant) => restaurant._id
+        );
+
+      query.restaurantId = {
+        $in: restaurantIds,
+      };
+    }
+
+    // ==================================================
+    // Manager
+    // ==================================================
+
+    if (req.user.role === "MANAGER") {
+      if (!req.user.restaurantId) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Manager is not assigned to a restaurant",
+        });
+      }
+
+      query.restaurantId =
+        req.user.restaurantId;
+    }
+
+    // ==================================================
+    // SUPER_ADMIN
+    // No filter
+    // ==================================================
+
+    const bookings = await Booking.find(query)
+      .populate(
+        "restaurantId",
+        "name city"
+      )
+      .populate(
+        "tableId",
+        "tableNumber capacity floor"
+      )
+      .populate(
+        "customerId",
+        "fullName email phone"
+      )
+      .sort({
+        createdAt: -1,
+      });
 
     return res.status(200).json({
       success: true,
       count: bookings.length,
       data: bookings,
     });
-
   } catch (error) {
-    console.error("Get All Bookings Error:", error);
+    console.error(
+      "Get All Bookings Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
@@ -243,20 +502,31 @@ const getMyBookings = async (req, res) => {
     const customerId = req.user._id;
 
     const bookings = await Booking.find({
-      customerId: customerId,
+      customerId,
     })
-      .populate("restaurantId", "name city")
-      .populate("tableId", "tableNumber capacity floor")
-      .sort({ bookingDate: -1, bookingTime: -1 });
+      .populate(
+        "restaurantId",
+        "name city"
+      )
+      .populate(
+        "tableId",
+        "tableNumber capacity floor"
+      )
+      .sort({
+        bookingDate: -1,
+        bookingTime: -1,
+      });
 
     return res.status(200).json({
       success: true,
       count: bookings.length,
       data: bookings,
     });
-
   } catch (error) {
-    console.error("Get My Bookings Error:", error);
+    console.error(
+      "Get My Bookings Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -273,10 +543,34 @@ const getBookingById = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // ==================================================
+    // Validate ID
+    // ==================================================
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID",
+      });
+    }
+
+    // ==================================================
+    // Find Booking
+    // ==================================================
+
     const booking = await Booking.findById(id)
-      .populate("restaurantId", "name city")
-      .populate("tableId", "tableNumber capacity floor")
-      .populate("customerId", "fullName email phone");
+      .populate(
+        "restaurantId",
+        "name city owner"
+      )
+      .populate(
+        "tableId",
+        "tableNumber capacity floor"
+      )
+      .populate(
+        "customerId",
+        "fullName email phone"
+      );
 
     if (!booking) {
       return res.status(404).json({
@@ -285,9 +579,9 @@ const getBookingById = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Customer can see only own booking
-    // ======================================================
+    // ==================================================
+    // Customer Ownership
+    // ==================================================
 
     if (req.user.role === "CUSTOMER") {
       if (
@@ -296,7 +590,33 @@ const getBookingById = async (req, res) => {
       ) {
         return res.status(403).json({
           success: false,
-          message: "You are not authorized to view this booking",
+          message:
+            "You are not authorized to view this booking",
+        });
+      }
+    }
+
+    // ==================================================
+    // Staff Restaurant Access
+    // ==================================================
+
+    if (
+      req.user.role === "RESTAURANT_OWNER" ||
+      req.user.role === "MANAGER"
+    ) {
+      const restaurant =
+        await Restaurant.findById(
+          booking.restaurantId._id
+        );
+
+      if (
+        !restaurant ||
+        !isRestaurantStaff(req, restaurant)
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "You are not authorized for this restaurant",
         });
       }
     }
@@ -305,9 +625,11 @@ const getBookingById = async (req, res) => {
       success: true,
       data: booking,
     });
-
   } catch (error) {
-    console.error("Get Booking By ID Error:", error);
+    console.error(
+      "Get Booking By ID Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -318,7 +640,9 @@ const getBookingById = async (req, res) => {
 
 // ======================================================
 // Update Booking Status
-// Owner / Super Admin
+// SUPER_ADMIN
+// RESTAURANT_OWNER
+// MANAGER
 // ======================================================
 
 const updateBookingStatus = async (req, res) => {
@@ -326,36 +650,43 @@ const updateBookingStatus = async (req, res) => {
     const { id } = req.params;
     const { bookingStatus } = req.body;
 
-    // ======================================================
-    // Validate Status
-    // ======================================================
+    // ==================================================
+    // Validate ID
+    // ==================================================
 
-    const allowedStatuses = [
-      "PENDING",
-      "CONFIRMED",
-      "CHECKED_IN",
-      "COMPLETED",
-      "CANCELLED",
-      "NO_SHOW",
-    ];
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID",
+      });
+    }
+
+    // ==================================================
+    // Validate Status
+    // ==================================================
 
     if (!bookingStatus) {
       return res.status(400).json({
         success: false,
-        message: "Booking status is required",
+        message:
+          "Booking status is required",
       });
     }
 
-    if (!allowedStatuses.includes(bookingStatus)) {
+    if (
+      !ALL_BOOKING_STATUSES.includes(
+        bookingStatus
+      )
+    ) {
       return res.status(400).json({
         success: false,
         message: "Invalid booking status",
       });
     }
 
-    // ======================================================
+    // ==================================================
     // Find Booking
-    // ======================================================
+    // ==================================================
 
     const booking = await Booking.findById(id);
 
@@ -366,13 +697,14 @@ const updateBookingStatus = async (req, res) => {
       });
     }
 
-    // ======================================================
+    // ==================================================
     // Find Restaurant
-    // ======================================================
+    // ==================================================
 
-    const restaurant = await Restaurant.findById(
-      booking.restaurantId
-    );
+    const restaurant =
+      await Restaurant.findById(
+        booking.restaurantId
+      );
 
     if (!restaurant) {
       return res.status(404).json({
@@ -381,55 +713,130 @@ const updateBookingStatus = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Ownership Check
-    // ======================================================
+    // ==================================================
+    // Staff Access
+    // ==================================================
 
     if (
-      req.user.role !== "SUPER_ADMIN" &&
-      restaurant.owner.toString() !== req.user._id.toString()
+      !isRestaurantStaff(
+        req,
+        restaurant
+      )
     ) {
       return res.status(403).json({
         success: false,
-        message: "You are not authorized for this restaurant",
+        message:
+          "You are not authorized for this restaurant",
       });
     }
 
-    // ======================================================
-    // Update Status
-    // ======================================================
+    // ==================================================
+    // Check Status Transition
+    // ==================================================
 
-    booking.bookingStatus = bookingStatus;
+    if (
+      booking.bookingStatus ===
+      bookingStatus
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          `Booking is already ${bookingStatus}`,
+      });
+    }
+
+    const allowedNextStatuses =
+      ALLOWED_STATUS_TRANSITIONS[
+        booking.bookingStatus
+      ] || [];
+
+    if (
+      !allowedNextStatuses.includes(
+        bookingStatus
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          `Cannot change booking status from ${booking.bookingStatus} to ${bookingStatus}`,
+      });
+    }
+
+    // ==================================================
+    // Update
+    // ==================================================
+
+    booking.bookingStatus =
+      bookingStatus;
+
+    // ==================================================
+    // Cancellation Information
+    // ==================================================
+
+    if (bookingStatus === "CANCELLED") {
+      booking.cancelledAt =
+        new Date();
+
+      if (!booking.cancellationReason) {
+        booking.cancellationReason =
+          "Cancelled by restaurant";
+      }
+    }
 
     await booking.save();
 
     return res.status(200).json({
       success: true,
-      message: "Booking status updated successfully",
+      message:
+        "Booking status updated successfully",
       data: booking,
     });
-
   } catch (error) {
-    console.error("Update Booking Status Error:", error);
+    console.error(
+      "Update Booking Status Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
+      error: error.message,
     });
   }
 };
 
 // ======================================================
 // Update Booking
-// Customer can update own booking details
-// Customer CANNOT update status/payment/active status
+//
+// CUSTOMER:
+// Own booking only
+// Cannot update status/payment/isActive
+//
+// OWNER / MANAGER / ADMIN:
+// Restaurant booking management
 // ======================================================
 
 const updateBooking = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const booking = await Booking.findById(id);
+    // ==================================================
+    // Validate ID
+    // ==================================================
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID",
+      });
+    }
+
+    // ==================================================
+    // Find Booking
+    // ==================================================
+
+    const booking =
+      await Booking.findById(id);
 
     if (!booking) {
       return res.status(404).json({
@@ -438,11 +845,14 @@ const updateBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Customer can update only own booking
-    // ======================================================
+    // ==================================================
+    // Customer Access
+    // ==================================================
 
     if (req.user.role === "CUSTOMER") {
+      // ----------------------------------------------
+      // Own Booking Check
+      // ----------------------------------------------
 
       if (
         booking.customerId.toString() !==
@@ -450,139 +860,356 @@ const updateBooking = async (req, res) => {
       ) {
         return res.status(403).json({
           success: false,
-          message: "You are not authorized to update this booking",
+          message:
+            "You are not authorized to update this booking",
         });
       }
 
-      // ======================================================
-      // Customer cannot update protected fields
-      // ======================================================
+      // ----------------------------------------------
+      // Customer can only modify
+      // PENDING / CONFIRMED booking
+      // ----------------------------------------------
 
       if (
-        req.body.bookingStatus !== undefined ||
-        req.body.paymentStatus !== undefined ||
-        req.body.isActive !== undefined
+        !["PENDING", "CONFIRMED"].includes(
+          booking.bookingStatus
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Booking cannot be updated because current status is ${booking.bookingStatus}`,
+        });
+      }
+
+      // ----------------------------------------------
+      // Protected Fields
+      // ----------------------------------------------
+
+      if (
+        req.body.bookingStatus !==
+          undefined ||
+        req.body.paymentStatus !==
+          undefined ||
+        req.body.isActive !==
+          undefined ||
+        req.body.restaurantId !==
+          undefined ||
+        req.body.tableId !==
+          undefined ||
+        req.body.customerId !==
+          undefined ||
+        req.body.bookingCode !==
+          undefined
       ) {
         return res.status(403).json({
           success: false,
           message:
-            "Customer cannot update booking status, payment status or active status",
+            "Customer cannot update protected booking fields",
         });
       }
     }
 
-    // ======================================================
-    // Update Booking Date
-    // ======================================================
+    // ==================================================
+    // Staff Access
+    // ==================================================
 
-    if (req.body.bookingDate) {
-      const newBookingDate = new Date(req.body.bookingDate);
+    if (
+      req.user.role ===
+        "RESTAURANT_OWNER" ||
+      req.user.role === "MANAGER"
+    ) {
+      const restaurant =
+        await Restaurant.findById(
+          booking.restaurantId
+        );
 
-      if (isNaN(newBookingDate.getTime())) {
+      if (
+        !restaurant ||
+        !isRestaurantStaff(
+          req,
+          restaurant
+        )
+      ) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "You are not authorized for this restaurant",
+        });
+      }
+    }
+
+    // ==================================================
+    // New Date
+    // ==================================================
+
+    let newBookingDate =
+      booking.bookingDate;
+
+    if (
+      req.body.bookingDate !==
+      undefined
+    ) {
+      const parsedDate =
+        parseBookingDate(
+          req.body.bookingDate
+        );
+
+      if (!parsedDate) {
         return res.status(400).json({
           success: false,
-          message: "Invalid booking date",
+          message:
+            "Invalid booking date",
         });
       }
 
-      booking.bookingDate = newBookingDate;
+      newBookingDate =
+        parsedDate;
     }
 
-    // ======================================================
-    // Update Booking Time
-    // ======================================================
+    // ==================================================
+    // New Time
+    // ==================================================
 
-    if (req.body.bookingTime) {
-      booking.bookingTime = req.body.bookingTime;
+    let newBookingTime =
+      booking.bookingTime;
+
+    if (
+      req.body.bookingTime !==
+      undefined
+    ) {
+      if (
+        !TIME_REGEX.test(
+          req.body.bookingTime
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid booking time. Use HH:mm format",
+        });
+      }
+
+      newBookingTime =
+        req.body.bookingTime;
     }
 
-    // ======================================================
-    // Update Guests
-    // ======================================================
+    // ==================================================
+    // Date / Time Changed?
+    // ==================================================
 
-    if (req.body.guests !== undefined) {
+    const dateChanged =
+      newBookingDate.getTime() !==
+      new Date(
+        booking.bookingDate
+      ).getTime();
 
-      const table = await Table.findById(
-        booking.tableId
-      );
+    const timeChanged =
+      newBookingTime !==
+      booking.bookingTime;
+
+    // ==================================================
+    // Double Booking Check
+    // ==================================================
+
+    if (
+      dateChanged ||
+      timeChanged
+    ) {
+      const existingBooking =
+        await findConflictingBooking({
+          bookingId: booking._id,
+          tableId: booking.tableId,
+          bookingDate: newBookingDate,
+          bookingTime: newBookingTime,
+        });
+
+      if (existingBooking) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Table is already booked for this time",
+        });
+      }
+
+      booking.bookingDate =
+        newBookingDate;
+
+      booking.bookingTime =
+        newBookingTime;
+    }
+
+    // ==================================================
+    // Guests
+    // ==================================================
+
+    if (
+      req.body.guests !==
+      undefined
+    ) {
+      const numberOfGuests =
+        Number(req.body.guests);
+
+      if (
+        !Number.isInteger(
+          numberOfGuests
+        ) ||
+        numberOfGuests < 1
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Guests must be a positive integer",
+        });
+      }
+
+      const table =
+        await Table.findById(
+          booking.tableId
+        );
 
       if (!table) {
         return res.status(404).json({
           success: false,
-          message: "Table not found",
+          message:
+            "Table not found",
         });
       }
 
-      if (req.body.guests < 1) {
+      if (!table.isActive) {
         return res.status(400).json({
           success: false,
-          message: "Guests must be at least 1",
+          message:
+            "Table is currently inactive",
         });
       }
 
-      if (req.body.guests > table.capacity) {
+      if (
+        table.status ===
+        "MAINTENANCE"
+      ) {
         return res.status(400).json({
           success: false,
-          message: `Maximum ${table.capacity} guests allowed`,
+          message:
+            "Table is under maintenance",
         });
       }
 
-      booking.guests = req.body.guests;
+      if (
+        numberOfGuests >
+        table.capacity
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Maximum ${table.capacity} guests allowed`,
+        });
+      }
+
+      booking.guests =
+        numberOfGuests;
     }
 
-    // ======================================================
-    // Update Special Request
-    // ======================================================
+    // ==================================================
+    // Special Request
+    // ==================================================
 
-    if (req.body.specialRequest !== undefined) {
+    if (
+      req.body.specialRequest !==
+      undefined
+    ) {
       booking.specialRequest =
-        req.body.specialRequest;
+        req.body.specialRequest
+          ?.toString()
+          .trim() || "";
     }
 
-    // ======================================================
-    // Only non-CUSTOMER roles can update protected fields
-    // ======================================================
+    // ==================================================
+    // Staff Protected Fields
+    // ==================================================
 
-    if (req.user.role !== "CUSTOMER") {
+    if (
+      req.user.role !==
+      "CUSTOMER"
+    ) {
+      // ----------------------------------------------
+      // Booking Status
+      // ----------------------------------------------
 
-      if (req.body.bookingStatus !== undefined) {
-        const allowedStatuses = [
-          "PENDING",
-          "CONFIRMED",
-          "CHECKED_IN",
-          "COMPLETED",
-          "CANCELLED",
-          "NO_SHOW",
-        ];
-
-        if (!allowedStatuses.includes(req.body.bookingStatus)) {
+      if (
+        req.body.bookingStatus !==
+        undefined
+      ) {
+        if (
+          !ALL_BOOKING_STATUSES.includes(
+            req.body.bookingStatus
+          )
+        ) {
           return res.status(400).json({
             success: false,
-            message: "Invalid booking status",
+            message:
+              "Invalid booking status",
           });
         }
 
-        booking.bookingStatus =
-          req.body.bookingStatus;
+        if (
+          booking.bookingStatus !==
+          req.body.bookingStatus
+        ) {
+          const allowedNextStatuses =
+            ALLOWED_STATUS_TRANSITIONS[
+              booking.bookingStatus
+            ] || [];
+
+          if (
+            !allowedNextStatuses.includes(
+              req.body.bookingStatus
+            )
+          ) {
+            return res.status(400).json({
+              success: false,
+              message:
+                `Cannot change booking status from ${booking.bookingStatus} to ${req.body.bookingStatus}`,
+            });
+          }
+
+          booking.bookingStatus =
+            req.body.bookingStatus;
+
+          if (
+            req.body.bookingStatus ===
+            "CANCELLED"
+          ) {
+            booking.cancelledAt =
+              new Date();
+
+            if (
+              !booking.cancellationReason
+            ) {
+              booking.cancellationReason =
+                "Cancelled by restaurant";
+            }
+          }
+        }
       }
 
-      if (req.body.paymentStatus !== undefined) {
+      // ----------------------------------------------
+      // Payment Status
+      // ----------------------------------------------
 
-        const allowedPaymentStatuses = [
-          "PENDING",
-          "PAID",
-          "FAILED",
-          "REFUNDED",
-        ];
-
+      if (
+        req.body.paymentStatus !==
+        undefined
+      ) {
         if (
-          !allowedPaymentStatuses.includes(
+          !PAYMENT_STATUSES.includes(
             req.body.paymentStatus
           )
         ) {
           return res.status(400).json({
             success: false,
-            message: "Invalid payment status",
+            message:
+              "Invalid payment status",
           });
         }
 
@@ -590,30 +1217,61 @@ const updateBooking = async (req, res) => {
           req.body.paymentStatus;
       }
 
-      if (req.body.isActive !== undefined) {
+      // ----------------------------------------------
+      // Active Status
+      // ----------------------------------------------
 
-        if (typeof req.body.isActive !== "boolean") {
+      if (
+        req.body.isActive !==
+        undefined
+      ) {
+        if (
+          typeof req.body.isActive !==
+          "boolean"
+        ) {
           return res.status(400).json({
             success: false,
-            message: "isActive must be true or false",
+            message:
+              "isActive must be true or false",
           });
         }
 
         booking.isActive =
           req.body.isActive;
       }
+
+      // ----------------------------------------------
+      // Cancellation Reason
+      // ----------------------------------------------
+
+      if (
+        req.body.cancellationReason !==
+        undefined
+      ) {
+        booking.cancellationReason =
+          req.body.cancellationReason
+            ?.toString()
+            .trim() || "";
+      }
     }
+
+    // ==================================================
+    // Save
+    // ==================================================
 
     await booking.save();
 
     return res.status(200).json({
       success: true,
-      message: "Booking updated successfully",
+      message:
+        "Booking updated successfully",
       data: booking,
     });
-
   } catch (error) {
-    console.error("Update Booking Error:", error);
+    console.error(
+      "Update Booking Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -631,11 +1289,23 @@ const updateBooking = async (req, res) => {
 const cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
-    const { cancellationReason } = req.body;
+    const { cancellationReason } =
+      req.body;
 
-    // ======================================================
-    // Validate Cancellation Reason
-    // ======================================================
+    // ==================================================
+    // Validate ID
+    // ==================================================
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID",
+      });
+    }
+
+    // ==================================================
+    // Validate Reason
+    // ==================================================
 
     if (
       !cancellationReason ||
@@ -643,15 +1313,17 @@ const cancelBooking = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Cancellation reason is required",
+        message:
+          "Cancellation reason is required",
       });
     }
 
-    // ======================================================
+    // ==================================================
     // Find Booking
-    // ======================================================
+    // ==================================================
 
-    const booking = await Booking.findById(id);
+    const booking =
+      await Booking.findById(id);
 
     if (!booking) {
       return res.status(404).json({
@@ -660,9 +1332,9 @@ const cancelBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Customer Ownership Check
-    // ======================================================
+    // ==================================================
+    // Customer Ownership
+    // ==================================================
 
     if (
       booking.customerId.toString() !==
@@ -670,21 +1342,17 @@ const cancelBooking = async (req, res) => {
     ) {
       return res.status(403).json({
         success: false,
-        message: "You are not authorized to cancel this booking",
+        message:
+          "You are not authorized to cancel this booking",
       });
     }
 
-    // ======================================================
-    // Check Booking Status
-    // ======================================================
-
-    const cancellableStatuses = [
-      "PENDING",
-      "CONFIRMED",
-    ];
+    // ==================================================
+    // Cancellable Status
+    // ==================================================
 
     if (
-      !cancellableStatuses.includes(
+      !["PENDING", "CONFIRMED"].includes(
         booking.bookingStatus
       )
     ) {
@@ -695,49 +1363,74 @@ const cancelBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Cancel Booking
-    // ======================================================
+    // ==================================================
+    // Cancel
+    // ==================================================
 
-    booking.bookingStatus = "CANCELLED";
+    booking.bookingStatus =
+      "CANCELLED";
 
     booking.cancellationReason =
       cancellationReason.trim();
 
-    booking.cancelledAt = new Date();
+    booking.cancelledAt =
+      new Date();
 
-    // Keep booking active so that
-    // booking history is preserved.
+    // Keep history
     booking.isActive = true;
 
     await booking.save();
 
     return res.status(200).json({
       success: true,
-      message: "Booking cancelled successfully",
+      message:
+        "Booking cancelled successfully",
       data: booking,
     });
-
   } catch (error) {
-    console.error("Cancel Booking Error:", error);
+    console.error(
+      "Cancel Booking Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: error.message,
     });
   }
 };
 
 // ======================================================
 // Delete Booking
+//
+// SUPER_ADMIN
+// RESTAURANT_OWNER
+// MANAGER
+//
+// Soft Delete
 // ======================================================
 
 const deleteBooking = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const booking = await Booking.findById(id);
+    // ==================================================
+    // Validate ID
+    // ==================================================
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid booking ID",
+      });
+    }
+
+    // ==================================================
+    // Find Booking
+    // ==================================================
+
+    const booking =
+      await Booking.findById(id);
 
     if (!booking) {
       return res.status(404).json({
@@ -746,32 +1439,70 @@ const deleteBooking = async (req, res) => {
       });
     }
 
-    // ======================================================
-    // Customer can delete only own booking
-    // ======================================================
+    // ==================================================
+    // Customer Cannot Delete
+    // ==================================================
 
-    if (req.user.role === "CUSTOMER") {
+    if (
+      req.user.role ===
+      "CUSTOMER"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Customer cannot delete bookings",
+      });
+    }
+
+    // ==================================================
+    // Restaurant Access
+    // ==================================================
+
+    if (
+      req.user.role ===
+        "RESTAURANT_OWNER" ||
+      req.user.role ===
+        "MANAGER"
+    ) {
+      const restaurant =
+        await Restaurant.findById(
+          booking.restaurantId
+        );
 
       if (
-        booking.customerId.toString() !==
-        req.user._id.toString()
+        !restaurant ||
+        !isRestaurantStaff(
+          req,
+          restaurant
+        )
       ) {
         return res.status(403).json({
           success: false,
-          message: "You are not authorized to delete this booking",
+          message:
+            "You are not authorized for this restaurant",
         });
       }
     }
 
-    await Booking.findByIdAndDelete(id);
+    // ==================================================
+    // Soft Delete
+    // ==================================================
+
+    booking.isActive = false;
+
+    await booking.save();
 
     return res.status(200).json({
       success: true,
-      message: "Booking deleted successfully",
+      message:
+        "Booking deleted successfully",
+      data: booking,
     });
-
   } catch (error) {
-    console.error("Delete Booking Error:", error);
+    console.error(
+      "Delete Booking Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
