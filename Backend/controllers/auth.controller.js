@@ -5,11 +5,21 @@ const User = require("../models/User");
 // ==========================================
 // REGISTER
 // ==========================================
+
 const register = async (req, res) => {
   try {
-    const { fullName, email, phone, password } = req.body;
+    const {
+      fullName,
+      email,
+      phone,
+      password,
+      role,
+    } = req.body;
 
+    // ==========================================
     // Validation
+    // ==========================================
+
     if (!fullName || !email || !phone || !password) {
       return res.status(400).json({
         success: false,
@@ -17,11 +27,39 @@ const register = async (req, res) => {
       });
     }
 
-    // Normalize data
+    // ==========================================
+    // Validate Registration Role
+    // ==========================================
+
+    // Public registration can create only:
+    // CUSTOMER
+    // RESTAURANT_OWNER
+
+    const selectedRole = role || "CUSTOMER";
+
+    if (
+      selectedRole !== "CUSTOMER" &&
+      selectedRole !== "RESTAURANT_OWNER"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Only CUSTOMER or RESTAURANT_OWNER registration is allowed",
+      });
+    }
+
+    // ==========================================
+    // Normalize Data
+    // ==========================================
+
+    const normalizedFullName = fullName.trim();
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedPhone = phone.trim();
 
+    // ==========================================
     // Check Email
+    // ==========================================
+
     const emailExists = await User.findOne({
       email: normalizedEmail,
     });
@@ -33,7 +71,10 @@ const register = async (req, res) => {
       });
     }
 
+    // ==========================================
     // Check Phone
+    // ==========================================
+
     const phoneExists = await User.findOne({
       phone: normalizedPhone,
     });
@@ -45,19 +86,27 @@ const register = async (req, res) => {
       });
     }
 
+    // ==========================================
     // Hash Password
+    // ==========================================
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // ==========================================
     // Create User
+    // ==========================================
+
     const user = await User.create({
-      fullName,
+      fullName: normalizedFullName,
       email: normalizedEmail,
       phone: normalizedPhone,
       password: hashedPassword,
-
-      // Public registration users are CUSTOMER
-      role: "CUSTOMER",
+      role: selectedRole,
     });
+
+    // ==========================================
+    // Response
+    // ==========================================
 
     return res.status(201).json({
       success: true,
@@ -83,11 +132,15 @@ const register = async (req, res) => {
 // ==========================================
 // LOGIN
 // ==========================================
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // ==========================================
     // Validation
+    // ==========================================
+
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -95,10 +148,16 @@ const login = async (req, res) => {
       });
     }
 
+    // ==========================================
     // Normalize Email
+    // ==========================================
+
     const normalizedEmail = email.trim().toLowerCase();
 
+    // ==========================================
     // Find User
+    // ==========================================
+
     const user = await User.findOne({
       email: normalizedEmail,
     });
@@ -110,7 +169,10 @@ const login = async (req, res) => {
       });
     }
 
+    // ==========================================
     // Check Active User
+    // ==========================================
+
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
@@ -118,7 +180,10 @@ const login = async (req, res) => {
       });
     }
 
+    // ==========================================
     // Compare Password
+    // ==========================================
+
     const isMatch = await bcrypt.compare(
       password,
       user.password
@@ -131,11 +196,18 @@ const login = async (req, res) => {
       });
     }
 
+    // ==========================================
     // Update Last Login
+    // ==========================================
+
     user.lastLogin = new Date();
+
     await user.save();
 
+    // ==========================================
     // Generate JWT
+    // ==========================================
+
     const token = jwt.sign(
       {
         id: user._id,
@@ -147,11 +219,14 @@ const login = async (req, res) => {
       }
     );
 
+    // ==========================================
+    // Response
+    // ==========================================
+
     return res.status(200).json({
       success: true,
       message: "Login successful",
       token,
-
       user: {
         id: user._id,
         fullName: user.fullName,
@@ -174,6 +249,7 @@ const login = async (req, res) => {
 // ==========================================
 // GET PROFILE
 // ==========================================
+
 const getProfile = async (req, res) => {
   try {
     return res.status(200).json({
@@ -189,6 +265,10 @@ const getProfile = async (req, res) => {
     });
   }
 };
+
+// ==========================================
+// Export Controllers
+// ==========================================
 
 module.exports = {
   register,

@@ -7,6 +7,9 @@ const {
   getAllRestaurants,
   getRestaurantById,
   updateRestaurant,
+  approveRestaurant,
+  rejectRestaurant,
+  getPendingRestaurants,
   deleteRestaurant,
 } = require("../controllers/restaurantController");
 
@@ -29,6 +32,43 @@ router.post(
 );
 
 // ==========================================
+// Get Pending Restaurants
+// SUPER_ADMIN Only
+// IMPORTANT: This must come before /:id
+// ==========================================
+
+router.get(
+  "/pending",
+  protect,
+  authorize("SUPER_ADMIN"),
+  getPendingRestaurants
+);
+
+// ==========================================
+// Approve Restaurant
+// SUPER_ADMIN Only
+// ==========================================
+
+router.put(
+  "/:id/approve",
+  protect,
+  authorize("SUPER_ADMIN"),
+  approveRestaurant
+);
+
+// ==========================================
+// Reject Restaurant
+// SUPER_ADMIN Only
+// ==========================================
+
+router.put(
+  "/:id/reject",
+  protect,
+  authorize("SUPER_ADMIN"),
+  rejectRestaurant
+);
+
+// ==========================================
 // Get All Restaurants
 // Any Logged-in User
 // ==========================================
@@ -37,17 +77,6 @@ router.get(
   "/",
   protect,
   getAllRestaurants
-);
-
-// ==========================================
-// Get Restaurant By ID
-// Any Logged-in User
-// ==========================================
-
-router.get(
-  "/:id",
-  protect,
-  getRestaurantById
 );
 
 // ==========================================
@@ -75,6 +104,18 @@ router.delete(
   protect,
   authorize("SUPER_ADMIN"),
   deleteRestaurant
+);
+
+// ==========================================
+// Get Restaurant By ID
+// Any Logged-in User
+// IMPORTANT: Keep this LAST
+// ==========================================
+
+router.get(
+  "/:id",
+  protect,
+  getRestaurantById
 );
 
 module.exports = router;
