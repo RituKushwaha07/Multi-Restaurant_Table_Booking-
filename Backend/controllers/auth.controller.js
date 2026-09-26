@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const User = require("../models/User");
 
 // ==========================================
@@ -267,6 +268,167 @@ const getProfile = async (req, res) => {
 };
 
 // ==========================================
+// FORGOT PASSWORD
+// ==========================================
+
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // ==========================================
+    // Validation
+    // ==========================================
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    // ==========================================
+    // Normalize Email
+    // ==========================================
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // ==========================================
+    // Find User
+    // ==========================================
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // ==========================================
+    // Generate Reset Token
+    // ==========================================
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    // ==========================================
+    // Save Reset Token
+    // ==========================================
+
+    user.resetPasswordToken = resetToken;
+
+    // Token expires after 15 minutes
+    user.resetPasswordExpire = new Date(
+      Date.now() + 15 * 60 * 1000
+    );
+
+    await user.save();
+
+    // ==========================================
+    // Response
+    // ==========================================
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset token generated successfully",
+      resetToken: resetToken,
+    });
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+
+
+
+// ==========================================
+// RESET PASSWORD
+// ==========================================
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    // ==========================================
+    // Validation
+    // ==========================================
+
+    if (!token || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Token and new password are required",
+      });
+    }
+
+    // ==========================================
+    // Find User
+    // ==========================================
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpire: { $gt: new Date() },
+    });
+
+    // ==========================================
+    // Check Token
+    // ==========================================
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset token",
+      });
+    }
+
+    // ==========================================
+    // Hash New Password
+    // ==========================================
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // ==========================================
+    // Update Password
+    // ==========================================
+
+    user.password = hashedPassword;
+
+    // ==========================================
+    // Remove Reset Token
+    // ==========================================
+
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+
+    await user.save();
+
+    // ==========================================
+    // Response
+    // ==========================================
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully",
+    });
+
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
+// ==========================================
 // Export Controllers
 // ==========================================
 
@@ -274,4 +436,6 @@ module.exports = {
   register,
   login,
   getProfile,
+  forgotPassword,
+  resetPassword
 };
