@@ -659,26 +659,110 @@ const rejectRestaurant = async (req, res) => {
 // SUPER_ADMIN only
 // =======================================
 
+// const getPendingRestaurants = async (req, res) => {
+//   try {
+
+//     console.log("=================================");
+//     console.log("PENDING RESTAURANT DEBUG");
+//     console.log("DB NAME:", mongoose.connection.name);
+//     console.log("COLLECTION:", Restaurant.collection.name);
+//     console.log("=================================");
+
+//     const allRestaurants = await Restaurant.find({});
+
+//     console.log(
+//       allRestaurants.map((restaurant) => ({
+//         id: restaurant._id,
+//         name: restaurant.name,
+//         approvalStatus: restaurant.approvalStatus,
+//         isActive: restaurant.isActive,
+//       }))
+//     );
+
+//     const restaurants = await Restaurant.find({
+//       approvalStatus: "PENDING",
+//     })
+//       .populate(
+//         "owner",
+//         "fullName email phone role"
+//       )
+//       .sort({
+//         createdAt: -1,
+//       });
+
+//     console.log("PENDING COUNT:", restaurants.length);
+
+//     return res.status(200).json({
+//       success: true,
+//       count: restaurants.length,
+//       data: restaurants,
+//     });
+
+//   } catch (error) {
+
+//     console.error("Get Pending Restaurants Error:", error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//     });
+//   }
+// };
+
+
 const getPendingRestaurants = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find({
-      approvalStatus: "PENDING",
-    })
-      .populate(
-        "owner",
-        "fullName email phone role"
-      )
-      .sort({
-        createdAt: -1,
-      });
+
+    console.log("=================================");
+    console.log("RAW MONGODB DEBUG");
+    console.log("=================================");
+
+    const rawRestaurants = await Restaurant.collection
+      .find({})
+      .toArray();
+
+    console.log("RAW DATA:");
+
+    console.log(
+      rawRestaurants.map((restaurant) => ({
+        id: restaurant._id,
+        name: restaurant.name,
+        approvalStatus: restaurant.approvalStatus,
+        approvalStatusType: typeof restaurant.approvalStatus,
+        approvalStatusLength:
+          restaurant.approvalStatus?.length,
+      }))
+    );
+
+    console.log("=================================");
+
+    const rawPendingRestaurants = await Restaurant.collection
+      .find({
+        approvalStatus: "PENDING",
+      })
+      .toArray();
+
+    console.log("RAW PENDING COUNT:", rawPendingRestaurants.length);
+
+    console.log(
+      rawPendingRestaurants.map((restaurant) => ({
+        id: restaurant._id,
+        name: restaurant.name,
+        approvalStatus: restaurant.approvalStatus,
+      }))
+    );
+
+    console.log("=================================");
 
     return res.status(200).json({
       success: true,
-      count: restaurants.length,
-      data: restaurants,
+      count: rawPendingRestaurants.length,
+      data: rawPendingRestaurants,
     });
+
   } catch (error) {
-    console.error("Get Pending Restaurants Error:", error);
+
+    console.error("RAW DEBUG ERROR:", error);
 
     return res.status(500).json({
       success: false,
@@ -686,6 +770,11 @@ const getPendingRestaurants = async (req, res) => {
     });
   }
 };
+
+
+
+
+
 
 // =======================================
 // Delete Restaurant
